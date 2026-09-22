@@ -42,7 +42,7 @@
 ## 8. Validation
 
 - [x] 8.1 Build the image end to end without errors
-- [ ] 8.2 Run it on the same machine the native install already works on; compare behaviour against the native `run_zynthian.sh` session (audio in/out, MIDI, GUI, clean exit/PipeWire restore)
+- [x] 8.2 Run it on the same machine the native install already works on; compare behaviour against the native `run_zynthian.sh` session (audio in/out, MIDI, GUI, clean exit/PipeWire restore). Confirmed via `docker-automated-smoke-test`'s automated script rather than manual comparison: GUI boots and renders, MIDI (VMPK, same virtual-device technique validated natively) reaches an active chain, that chain produces real audio (verified via `jack_rec` inside the container), and teardown cleanly restores PipeWire with no orphaned containers/processes - same behaviour the native install already had. See that change for the full test and the couple of Docker-specific fixes it took to get there (jackd defaulting to all 32 `snd-aloop` channels instead of a stereo pair; the fixture snapshot's soundfont path not existing in the image).
 - [ ] 8.3 If possible, test on a genuinely different (non-Ubuntu) Linux host to validate the actual point of this change
 - [ ] 8.4 Note any host-config-specific failures (Wayland-only, rootless Docker, etc.) as known limitations rather than silently working around them
 
