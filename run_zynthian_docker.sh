@@ -72,8 +72,16 @@ if [ ! -f "$ZYNTHIAN_DOCKER_CONFIG" ]; then
 # Host-specific overrides for the Zynthian Docker container. Bind-mounted
 # into the container and sourced by docker/entrypoint.sh before jackd
 # starts. The image's built-in JACKD_OPTIONS default (hw:0) is almost
-# certainly wrong for your hardware - check `aplay -l` and uncomment/edit:
-#export JACKD_OPTIONS="-P 70 -t 2000 -d alsa -d hw:0 -p 512 -n 3 -r 48000"
+# certainly wrong for your hardware - check `aplay -l` and uncomment/edit.
+#
+# -i 0: without an explicit capture-channel count, jackd opens your
+# device in full duplex, which zynautoconnect then auto-wires into any
+# audio-accepting chain (e.g. Guitarix's pregain) as if it were an
+# instrument - picking up your built-in mic's noise with no real source
+# connected. Leave capture off unless you actually want the onboard mic
+# as an input; external interfaces are still bridged in dynamically at
+# runtime by zynautoconnect's existing hotplug machinery when plugged in.
+#export JACKD_OPTIONS="-P 70 -t 2000 -d alsa -d hw:0 -i 0 -o 2 -p 512 -n 3 -r 48000"
 EOF
 fi
 
