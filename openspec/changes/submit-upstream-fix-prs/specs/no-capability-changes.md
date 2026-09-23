@@ -1,0 +1,1 @@
+No spec deltas for this change - see proposal.md's Capabilities section. This change tracks an external process action (submitting pull requests to the upstream `zynthian/zynthian-ui` project) rather than any behavior or requirement of this project's own software, so no capability's requirements are added, modified, or removed.
