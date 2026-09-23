@@ -19,6 +19,9 @@
 # Usage: ./run_zynthian_vnc.sh [classic|standard|device|device_cables]
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/novnc_viewer.sh"
+
 GUI_STYLE="${1:-device_cables}"
 
 VNC_DISPLAY="${VNC_DISPLAY:-:97}"
@@ -29,22 +32,12 @@ NOVNC_PORT="${NOVNC_PORT:-6080}"
 # design.md's Decisions). Set NOVNC_BIND=0.0.0.0 to view from another
 # device on the same network instead.
 NOVNC_BIND="${NOVNC_BIND:-localhost}"
-NOVNC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/noVNC"
+NOVNC_DIR="$SCRIPT_DIR/noVNC"
 
 # Matches device_cables' fixed native size (see run_zynthian.sh); classic/
 # standard/device all fit within this too since run_zynthian.sh adjusts
 # DISPLAY_WIDTH/HEIGHT itself for those styles.
 XVFB_SIZE="1910x1120x24"
-
-if ! command -v websockify > /dev/null; then
-    echo "websockify not found - install it with: sudo apt install websockify" >&2
-    exit 1
-fi
-
-if [ ! -d "$NOVNC_DIR" ]; then
-    echo "--- Cloning noVNC to $NOVNC_DIR (one-time, not committed to this repo) ---"
-    git clone https://github.com/novnc/noVNC.git "$NOVNC_DIR"
-fi
 
 cleanup() {
     echo "--- Stopping websockify/x11vnc/Xvfb ---"
@@ -52,31 +45,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "--- Starting Xvfb on $VNC_DISPLAY ($XVFB_SIZE) ---"
-Xvfb "$VNC_DISPLAY" -screen 0 "$XVFB_SIZE" > /tmp/zynthian_xvfb.log 2>&1 &
-XVFB_PID=$!
-sleep 1
+start_novnc_viewer
 
-echo "--- Starting x11vnc on port $VNC_PORT, log: /tmp/zynthian_x11vnc.log ---"
-# x11vnc bails out with "Wayland display server detected" if it sees
-# WAYLAND_DISPLAY/XDG_SESSION_TYPE=wayland in its environment - inherited
-# from the host's Wayland desktop session - even though -display here
-# correctly points at Xvfb's own X11 socket, not the host session. Strip
-# those two vars for x11vnc specifically so its (over-eager) check doesn't
-# fire.
-env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE \
-    x11vnc -display "$VNC_DISPLAY" -rfbport "$VNC_PORT" -forever -shared -nopw \
-    > /tmp/zynthian_x11vnc.log 2>&1 &
-X11VNC_PID=$!
-sleep 1
-
-echo "--- Starting websockify (noVNC) on $NOVNC_BIND:$NOVNC_PORT, log: /tmp/zynthian_websockify.log ---"
-websockify --web="$NOVNC_DIR" "$NOVNC_BIND:$NOVNC_PORT" "localhost:$VNC_PORT" \
-    > /tmp/zynthian_websockify.log 2>&1 &
-WEBSOCKIFY_PID=$!
-sleep 1
-
-echo "--- Open in a browser: http://$NOVNC_BIND:$NOVNC_PORT/vnc.html?host=$NOVNC_BIND&port=$NOVNC_PORT&resize=scale ---"
-echo "--- (or connect a raw VNC client to localhost:$VNC_PORT instead) ---"
 echo "--- Starting Zynthian ($GUI_STYLE) on the virtual display ---"
 DISPLAY="$VNC_DISPLAY" /zynthian/run_zynthian.sh "$GUI_STYLE"
