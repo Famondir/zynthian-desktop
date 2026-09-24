@@ -14,6 +14,19 @@
 # through to your own real X11 display (this script's only behavior
 # before that change).
 #
+# zynthian-webconf (the browser config UI) is also started inside the
+# container (see docker/entrypoint.sh) and published to the host at
+# http://localhost:${WEBCONF_HTTP_PORT:-8080} and
+# https://localhost:${WEBCONF_HTTPS_PORT:-8443} (self-signed cert - your
+# browser will warn, that's expected). Default login password is
+# "zynthian" (change it via ZYNTHIAN_WEBCONF_PASSWORD - webconf's own
+# in-app password-change page is disabled for this desktop port, see
+# openspec/changes/enable-webconf-access/design.md). Like noVNC below,
+# this is a new network-facing surface on your machine, published on all
+# interfaces by default (webconf itself has no loopback-only mode) - the
+# "localhost" above assumes you haven't changed Docker's default publish
+# bind address.
+#
 # Prerequisites this script assumes and does not try to work around:
 #  - Docker, with your user in the `docker` group.
 #  - X11 (or XWayland on a Wayland host) - a Wayland-native passthrough is
@@ -59,6 +72,17 @@ esac
 IMAGE="${ZYNTHIAN_DOCKER_IMAGE:-zynthian-desktop:latest}"
 ZYNTHIAN_MY_DATA_DIR="${ZYNTHIAN_MY_DATA_DIR:-$HOME/zynthian-my-data}"
 ZYNTHIAN_DOCKER_CONFIG="${ZYNTHIAN_DOCKER_CONFIG:-$HOME/.config/zynthian-docker/zynthian_envars_custom.sh}"
+
+# zynthian-webconf (see docker/entrypoint.sh): HTTP + unconditional
+# self-signed-HTTPS listeners inside the container, always on 80/443 (not
+# configurable without patching the fork further - see openspec/changes/
+# enable-webconf-access/design.md). Host-side ports are configurable since
+# 80/443 may already be taken on the host. Login password defaults to
+# "zynthian" (set in docker/entrypoint.sh) - change it via
+# ZYNTHIAN_WEBCONF_PASSWORD below or in $ZYNTHIAN_DOCKER_CONFIG.
+WEBCONF_HTTP_PORT="${WEBCONF_HTTP_PORT:-8080}"
+WEBCONF_HTTPS_PORT="${WEBCONF_HTTPS_PORT:-8443}"
+ZYNTHIAN_WEBCONF_PASSWORD="${ZYNTHIAN_WEBCONF_PASSWORD:-zynthian}"
 
 if [ ! -d "$ZYNTHIAN_MY_DATA_DIR" ]; then
     echo "--- Creating $ZYNTHIAN_MY_DATA_DIR (bind-mounted soundfonts/presets/snapshots) ---"
@@ -136,13 +160,17 @@ docker run --rm -it \
     --device /dev/snd \
     --group-add audio \
     --cap-add=SYS_NICE \
+    --cap-add=NET_BIND_SERVICE \
     --ulimit rtprio=95 \
     --ulimit memlock=-1 \
     --shm-size=256m \
     --user "$(id -u):$(id -g)" \
+    -p "$WEBCONF_HTTP_PORT:80" \
+    -p "$WEBCONF_HTTPS_PORT:443" \
     -e HOME=/tmp \
     -e DISPLAY="$CONTAINER_DISPLAY" \
     -e ZYNTHIAN_GUI_STYLE="$GUI_STYLE" \
+    -e ZYNTHIAN_WEBCONF_PASSWORD="$ZYNTHIAN_WEBCONF_PASSWORD" \
     -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
     -v "$ZYNTHIAN_MY_DATA_DIR:/zynthian/zynthian-my-data" \
     -v "$ZYNTHIAN_DOCKER_CONFIG:/zynthian/config/zynthian_envars_custom.sh:ro" \

@@ -91,12 +91,21 @@ fi
 # zynthian_envars_custom.sh above, or -e JACKD_OPTIONS=... on `docker run`.
 export JACKD_OPTIONS="${JACKD_OPTIONS:--P 70 -t 2000 -d alsa -d hw:0 -p 512 -n 3 -r 48000}"
 
+# Login password for zynthian-webconf (Famondir/zynthian-webconf, branch
+# vangelis - not upstream, which gates login behind a PAM check against the
+# system root account; this container runs non-root, so that fork's login
+# checks this env var instead - see openspec/changes/enable-webconf-access/
+# design.md). Same "documented default, change it" convention as
+# JACKD_OPTIONS above; override via zynthian_envars_custom.sh or
+# `docker run -e ZYNTHIAN_WEBCONF_PASSWORD=...`.
+export ZYNTHIAN_WEBCONF_PASSWORD="${ZYNTHIAN_WEBCONF_PASSWORD:-zynthian}"
+
 cleanup() {
-    echo "--- Shutting down jackd/a2jmidid ---"
+    echo "--- Shutting down jackd/a2jmidid/webconf ---"
     # See run_zynthian.sh: SIGKILL, not a graceful shutdown - Zynthian can
     # leave dead clients registered in jackd, and a graceful SIGTERM makes
     # jackd wait up to ~20s per dead client trying to notify them.
-    kill -9 "$A2J_PID" "$JACKD_PID" 2>/dev/null || true
+    kill -9 "$WEBCONF_PID" "$A2J_PID" "$JACKD_PID" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -109,6 +118,19 @@ echo "--- Starting a2jmidid, log: /tmp/zynthian_a2jmidid.log ---"
 a2jmidid -e > /tmp/zynthian_a2jmidid.log 2>&1 &
 A2J_PID=$!
 sleep 1
+
+# zynthian_webconf.sh (its own script, not this one) expects to run with
+# the venv's python3 first on PATH and its own directory as CWD (it execs
+# `./zynthian_webconf.py` and reads `cert/{cert,key}.pem` as relative
+# paths) - both handled inside this subshell so they don't leak into the
+# rest of this script (which still needs to `cd "$ZYNTHIAN_UI_DIR"` below).
+echo "--- Starting zynthian-webconf, log: /tmp/zynthian_webconf.log ---"
+(
+    source "$ZYNTHIAN_DIR/venv/bin/activate"
+    cd "$ZYNTHIAN_DIR/zynthian-webconf"
+    exec ./zynthian_webconf.sh
+) > /tmp/zynthian_webconf.log 2>&1 &
+WEBCONF_PID=$!
 
 echo "--- Starting Zynthian UI ---"
 source "$ZYNTHIAN_DIR/venv/bin/activate"

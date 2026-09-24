@@ -86,3 +86,11 @@ export ZYNTHIAN_DEBUG_THREAD="1"
 # Show the on-screen virtual keypad/knobs overlay (what the official demo
 # videos show) since we have no physical encoders/buttons connected.
 export ZYNTHIAN_TOUCH_SHOWN="1"
+
+# zynthian-webconf login password (run_zynthian_webconf.sh defaults to
+# "zynthian" if unset - change it here instead of leaving the default on
+# a machine reachable from the LAN). Its own in-app password-change page
+# is disabled for this desktop port (see openspec/changes/
+# enable-webconf-access/design.md), so this env var is the only way to
+# change it.
+#export ZYNTHIAN_WEBCONF_PASSWORD="change-me"

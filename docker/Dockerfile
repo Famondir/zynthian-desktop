@@ -32,7 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libmimalloc-dev \
     liblrdf0-dev libzita-convolver-dev libzita-resampler-dev fonts-roboto \
     gperf libsigc++-2.0-dev libeigen3-dev \
-    ca-certificates wget curl unzip \
+    ca-certificates wget curl unzip openssl \
     x11-apps xauth \
     && rm -rf /var/lib/apt/lists/*
 # Notably NOT installed: pipewire-jack, or any PipeWire package. There is
@@ -94,13 +94,36 @@ WORKDIR $ZYNTHIAN_DIR
 # but this RUN line itself never changes, so Docker would otherwise cache a
 # stale clone forever. Pass --build-arg CACHEBUST=$(date +%s) to force a
 # fresh clone without invalidating the slow apt-get layer above it.
+#
+# zynthian-webconf: also Famondir/zynthian-webconf, branch vangelis - NOT
+# upstream zynthian/zynthian-webconf, which gates every page behind a PAM
+# login against the system root account (assumes webconf runs as root, as
+# it does via systemd on real hardware). This container runs non-root (see
+# run_zynthian_docker.sh's --user), so the fork's login instead checks
+# ZYNTHIAN_WEBCONF_PASSWORD - see openspec/changes/enable-webconf-access/
+# design.md for the full rationale.
 ARG CACHEBUST=1
 RUN git clone --depth 1 -b vangelis https://github.com/Famondir/zynthian-ui.git zynthian-ui \
     && git clone --depth 1 https://github.com/zynthian/zyncoder.git zyncoder \
     && git clone --depth 1 https://github.com/zynthian/zynthian-sys.git zynthian-sys \
     && git clone --depth 1 https://github.com/zynthian/zynthian-data.git zynthian-data \
+    && git clone --depth 1 -b vangelis https://github.com/Famondir/zynthian-webconf.git zynthian-webconf \
     && ln -s ../zyncoder zynthian-ui/zyncoder \
     && mkdir -p "$ZYNTHIAN_SW_DIR" "$ZYNTHIAN_PLUGINS_SRC_DIR" "$ZYNTHIAN_PLUGINS_DIR/lv2"
+
+# zynthian-webconf unconditionally listens on 443 with a self-signed cert
+# (zynthian_webconf.py: app.listen(443, ssl_options={"certfile": "cert/
+# cert.pem", "keyfile": "cert/key.pem"})) - it crashes at startup without
+# these files, and the repo itself doesn't ship them (cert/ is gitignored
+# there). Same command real hardware uses to (re)generate its own
+# (zynthian-sys/sbin/regenerate_keys.sh), baked in at build time here
+# instead of first-run, since there's no per-device identity to keep
+# unique in a container image.
+RUN mkdir -p "$ZYNTHIAN_DIR/zynthian-webconf/cert" \
+    && openssl req -x509 -newkey rsa:4096 \
+        -keyout "$ZYNTHIAN_DIR/zynthian-webconf/cert/key.pem" \
+        -out "$ZYNTHIAN_DIR/zynthian-webconf/cert/cert.pem" \
+        -days 36500 -nodes -subj "/CN=zynthian-desktop.local"
 
 # zynthian-ui bundles its own fonts (fonts/*), none of which are apt
 # packages - the default UI font (zynthian_gui_config.font_family, default
@@ -201,12 +224,26 @@ RUN cd "$ZYNTHIAN_UI_DIR/zynlibs" && ./build.sh
 # None of pyliblo3/websocket-client/pyalsaaudio/pyudev are apt packages
 # under these names on Ubuntu 24.04 (apt's python3-liblo provides a `liblo`
 # module, not `pyliblo3`, and does not satisfy that import).
+#
+# zynthian-webconf's own deps, on top of the above (it imports zyncoder/
+# zynconf/zyngine/zyngui directly, so it needs zynthian-ui's dependencies
+# too - already covered by the two installs below): tornado/tornadostreamform/
+# tornado_xstatic/terminado/xstatic/XStatic_term.js (its Tornado web app +
+# in-browser terminal), jsonpickle/mido/mutagen/py7zr/rarfile/requests (found
+# by statically scanning zynthian_webconf.py + lib/*.py the same way, see
+# design.md). Not installed: PAM/python-pam, bcrypt - both were only used by
+# the upstream PAM/root login this project's zynthian-webconf fork (Famondir/
+# zynthian-webconf, branch vangelis, cloned above) replaces; pyliblo3/
+# websocket-client/beautifulsoup4 above already cover webconf's own imports
+# of those same modules.
 RUN python3 -m venv "$ZYNTHIAN_DIR/venv" --system-site-packages \
     && "$ZYNTHIAN_DIR/venv/bin/pip" install --no-cache-dir -r "$ZYNTHIAN_UI_DIR/requirements.txt" \
     && "$ZYNTHIAN_DIR/venv/bin/pip" install --no-cache-dir \
         pexpect numpy scipy wavio psutil \
         pyliblo3 pyalsaaudio websocket-client pyudev \
-        beautifulsoup4 cairosvg moderngl moderngl-window
+        beautifulsoup4 cairosvg moderngl moderngl-window \
+        tornado tornadostreamform tornado_xstatic terminado xstatic XStatic_term.js \
+        jsonpickle mido mutagen py7zr rarfile requests
 
 # --- 5. Directory scaffolding ---
 # A plain checkout doesn't provide these, and the app errors without them.
