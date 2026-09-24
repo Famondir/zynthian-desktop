@@ -43,6 +43,17 @@ The `device_cables` style SHALL display, for each audio capture port currently p
 - **WHEN** the keypad is constructed before `zyncoder`'s core library has finished initializing
 - **THEN** the keypad does not crash or leave `zynautoconnect`'s internal library reference permanently unusable for the rest of the process
 
+### Requirement: device_cables cable list stays visible under load
+The `device_cables` style's cable/connection indicators SHALL remain fully visible within the cable-graphics margin - no label clipped off the top edge of the canvas, and no overlap between indicators belonging to different port categories (audio-in, MIDI-in, MIDI-out, audio-out, LAN) - for the realistic range of simultaneously connected devices this project's hardware produces.
+
+#### Scenario: Several devices connected across multiple port categories
+- **WHEN** enough audio/MIDI devices are connected at once that one or more port-category columns' label stacks would exceed the cable-graphics margin's available height
+- **THEN** every label that fits within the enlarged margin renders fully visible and top-aligned within its column, with no label clipped above the canvas edge and no overlap with another column's labels
+
+#### Scenario: A single column's content still exceeds the available margin
+- **WHEN** one port-category column's label stack is taller than the cable-graphics margin even after accounting for the sizing this change introduces
+- **THEN** that column renders as many labels as fit, followed by a final "+N more" indicator summarizing the rest, rather than clipping a label silently or overlapping a neighboring column
+
 ### Requirement: Live press-duration feedback on device/device_cables
 While a button is held down on the `device` or `device_cables` keypad style, its press-outline colour SHALL indicate which press-duration bracket (Short/Bold/Long) the hold currently falls into, using the app's actual configured thresholds (`ZYNTHIAN_UI_SWITCH_BOLD_MS`/`ZYNTHIAN_UI_SWITCH_LONG_MS`), without changing when or which press-duration action fires.
 
