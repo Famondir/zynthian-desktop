@@ -15,6 +15,17 @@ The runtime SHALL use a real standalone `jackd` process for audio I/O instead of
 - **WHEN** the Zynthian process exits, for any reason (clean exit, crash, or Ctrl+C)
 - **THEN** `jackd` and `a2jmidid` are terminated and the host's normal PipeWire audio services are restarted, so desktop audio (browser, media players, etc.) works again afterward
 
+### Requirement: Audio hardware hotplug without restarting the app
+Reconnecting or newly plugging in a USB audio interface SHALL make it selectable as an audio source without requiring the whole app (and its jackd process) to be restarted, matching how MIDI hotplug already behaves.
+
+#### Scenario: Reconnecting the same audio interface
+- **WHEN** a previously-connected USB audio interface is unplugged and plugged back in while the app is running
+- **THEN** its capture/playback ports become selectable again (e.g. in the Audio Input screen or `device_cables`' live cable display) without restarting the app
+
+#### Scenario: Plugging in a different audio interface
+- **WHEN** a USB audio interface that wasn't connected at app startup is plugged in while the app is running
+- **THEN** its capture/playback ports become selectable without restarting the app
+
 ### Requirement: Hardware-independent startup on non-Raspberry-Pi Linux
 The runtime SHALL start and reach a usable UI on a generic x86_64 Ubuntu desktop with no Raspberry-Pi GPIO, LED, or sensor hardware present, by substituting safe stand-ins for those subsystems instead of failing.
 
