@@ -100,6 +100,16 @@ export JACKD_OPTIONS="${JACKD_OPTIONS:--P 70 -t 2000 -d alsa -d hw:0 -p 512 -n 3
 # `docker run -e ZYNTHIAN_WEBCONF_PASSWORD=...`.
 export ZYNTHIAN_WEBCONF_PASSWORD="${ZYNTHIAN_WEBCONF_PASSWORD:-zynthian}"
 
+# All the /zynthian/* repos were git-cloned as root at image build time,
+# but this container runs as the host's non-root UID (see the --user flag
+# in run_zynthian_docker.sh). git's "dubious ownership" safe-directory
+# check refuses to run any command (branch/rev-parse/etc.) against a repo
+# it doesn't own as the current user - zynthian-webconf's dashboard shells
+# out to `git branch`/`git rev-parse` on six of these repos to show
+# version info, and 500'd on every load until this is set. HOME=/tmp
+# (already exported above/in run_zynthian_docker.sh) is where this lands.
+git config --global --add safe.directory '*'
+
 cleanup() {
     echo "--- Shutting down jackd/a2jmidid/webconf ---"
     # See run_zynthian.sh: SIGKILL, not a graceful shutdown - Zynthian can
