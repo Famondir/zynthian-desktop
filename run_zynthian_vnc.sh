@@ -41,9 +41,11 @@ NOVNC_DIR="$SCRIPT_DIR/noVNC"
 # get clipped by a narrower Xvfb screen (real content missing, not just
 # padding). track_app_window (see novnc_viewer.sh) crops the noVNC view to
 # whatever the actual window turns out to be, so oversizing this is free -
-# no visible margin cost for the narrower styles. Height (1120) already
-# covers all four styles' observed heights.
-XVFB_SIZE="2400x1120x24"
+# no visible margin cost for the narrower styles. Height (1200) matches
+# device_cables' current DISPLAY_HEIGHT (see run_zynthian.sh and
+# openspec/changes/fix-cable-list-overflow) - the tallest of the four
+# styles, so it covers all of them.
+XVFB_SIZE="2400x1200x24"
 
 cleanup() {
     echo "--- Stopping websockify/x11vnc/Xvfb ---"

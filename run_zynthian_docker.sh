@@ -130,8 +130,10 @@ if [ "$DOCKER_DISPLAY_MODE" = "novnc" ]; then
     NOVNC_DIR="$SCRIPT_DIR/noVNC"
     # See run_zynthian_vnc.sh's own comment: wider than device_cables'
     # 1910px so standard's computed width (which can exceed it) doesn't
-    # get clipped - track_app_window makes oversizing this free.
-    XVFB_SIZE="2400x1120x24"
+    # get clipped - track_app_window makes oversizing this free. Height
+    # (1200) matches device_cables' DISPLAY_HEIGHT (see run_zynthian.sh
+    # and openspec/changes/fix-cable-list-overflow) - must move together.
+    XVFB_SIZE="2400x1200x24"
     start_novnc_viewer
     # See novnc_viewer.sh's own comment: crops the noVNC view to the
     # container's actual window once it appears, instead of the full
