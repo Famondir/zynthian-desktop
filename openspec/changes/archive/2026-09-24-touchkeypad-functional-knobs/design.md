@@ -4,16 +4,16 @@
 
 This change fills that gap: turn the 4 knob graphics into real input surfaces feeding the same `zynpot`/`zynswitch` CUIA pipeline, using the same "invisible hit-area over baked pixels" pattern already proven for the 20 buttons - no new dispatch mechanism, no changes outside `zynthian_gui_touchkeypad_v5.py`.
 
-Knob pixel geometry was measured directly against the vendored render (script-driven crop/overlay, not eyeballed) since the only prior reference (tasks.md 5.14: `(1658,125) group offset, r=52`) turned out to be a rough note, not a verified value:
+Knob pixel geometry was measured directly against the vendored render (script-driven crop/overlay, not eyeballed) since the only prior reference (tasks.md 5.14: `(1658,125) group offset, r=52`) turned out to be a rough note, not a verified value. The first measurement pass assumed uniform vertical spacing and shipped `V5_KNOB_GROUP=(1711,197)`/`V5_KNOB_SPACING_Y=198`/`V5_KNOB_RADIUS=44` (task 1.1) - task 6.3's visual pass (user-reported: rings too large, upper three knobs' hit-areas sitting too low, bottom knob's sitting too high) found that assumption wrong. A second, edge-detection-based measurement pass against the raw asset (union of non-background pixels per row across a band spanning each knob, to avoid the knob's internal dark "pointer" wedge - which sits at a different rotational angle per knob - being mistaken for background) showed the true per-knob vertical spacing is *not* uniform:
 
-| Knob | Measured center (x, y) | Measured radius |
+| Knob | Final center (x, y) | Spacing from previous |
 |------|------------------------|------------------|
-| 1 (top) | (1711, 197) | ~40px (dark face); ~44-48px including metal rim |
-| 2 | (1711, 395) | ~40px |
-| 3 | (1711, 593) | ~40px |
-| 4 (bottom) | (1711, 791) | ~40px |
+| 1 (top) | (1718, 178) | - |
+| 2 | (1718, 378) | 200px |
+| 3 | (1718, 586) | 208px |
+| 4 (bottom) | (1718, 799) | 213px |
 
-i.e. a single x (1711), first-knob y of 197, and ~198px uniform vertical spacing - close to, but more precise than, task 5.14's note. These land inside `V5_SCREEN_RECT`'s right margin (screen ends at x=731+800=1531, image is 1910 wide), matching the real panel's knob column sitting to the right of the screen.
+Radius was tightened from 44px to 38px (the original value overshot visibly past the metal rim). These land inside `V5_SCREEN_RECT`'s right margin (screen ends at x=731+800=1531, image is 1910 wide), matching the real panel's knob column sitting to the right of the screen.
 
 ## Goals / Non-Goals
 
@@ -30,7 +30,7 @@ i.e. a single x (1711), first-knob y of 197, and ~198px uniform vertical spacing
 
 ## Decisions
 
-- **Same hit-area technique as buttons, new `draw_knob_device()` method.** A fully transparent `ImageTk.PhotoImage` per knob, `create_image`'d at the knob's bounding box and tag-bound to `<Enter>`/`<Leave>`/`<Button-4>`/`<Button-5>`/`<Button-1>`/`<ButtonRelease-1>`, mirroring `draw_button_device()`'s existing `<Button-1>`/`<ButtonRelease-1>` pattern. New constants follow the file's existing `V5_*` naming: `V5_KNOB_GROUP = (1711, 197)`, `V5_KNOB_SPACING_Y = 198`, `V5_KNOB_RADIUS = 44` (hit-radius - slightly larger than the measured 40px dark-face radius so the hit-area also covers the lighter metal rim, same margin-of-forgiveness spirit as the buttons' full-footprint hit rectangles). Like every other `V5_*` constant in this file, these are a starting point to be confirmed/tuned visually against the running app (the button/LED constants went through several rounds of user-screenshot-driven correction before landing - see `touchkeypad-visual-styles/tasks.md` 5.7-5.13).
+- **Same hit-area technique as buttons, new `draw_knob_device()` method.** A fully transparent `ImageTk.PhotoImage` per knob, `create_image`'d at the knob's bounding box and tag-bound to `<Enter>`/`<Leave>`/`<Button-4>`/`<Button-5>`/`<Button-1>`/`<ButtonRelease-1>`, mirroring `draw_button_device()`'s existing `<Button-1>`/`<ButtonRelease-1>` pattern. New constants follow the file's existing `V5_*` naming: `V5_KNOB_CENTER_X = 1718`, `V5_KNOB_ROWS = (178, 378, 586, 799)` (per-knob Y offsets, not a single top+spacing formula - see below), `V5_KNOB_RADIUS = 38` (hit-radius, sized to the visible knob face including its metal rim). Like every other `V5_*` constant in this file, these went through several rounds of visual correction before landing (task 6.3) - the same workflow the button/LED constants went through in `touchkeypad-visual-styles/tasks.md` 5.7-5.13. `V5_KNOB_ROWS` uses an explicit per-knob tuple rather than a single `TOP_Y`/`SPACING_Y` pair (unlike the first draft) because task 6.3's re-measurement found the true vertical spacing between knobs isn't uniform (200px/208px/213px) - the same reasoning `V5_BUTTON_ROWS` above already applies to the 5 button rows.
 - **Knob index = visual top-to-bottom order (0=top/"1" ... 3=bottom/"4"), matching the render's own baked-in "1/2/3/4" labels.** This is the same index space `zynpot`/`zynswitch` CUIAs already use (`ZYNPOT 0..3`, `ZYNSWITCH 0..3`), and the render's labels are the only physical reference available without real V5 hardware; if user testing shows the physical wiring order differs, only the constant's ordering needs to change; wiring, exact behavior are unaffected either way.
 - **Scroll wheel → `zynpot {i},{+1|-1}`, not an accumulated/scaled delta.** One wheel notch (`<Button-4>`/`<Button-5>`, the standard X11 mouse-wheel binding already used throughout this codebase, e.g. `zynthian_gui_controller.cb_canvas_wheel`) = one encoder detent, matching both the real encoder's per-detent CUIA and the existing keyboard binding (`Comma`/`Period` → `ZYNPOT 3,-1`/`ZYNPOT 3,1`). No custom acceleration curve - whatever the current screen's `zynpot_cb` does with a run of `±1` deltas (some screens already implement their own repeat/acceleration) applies unchanged.
 - **Click → `zynswitch {i},P`/`zynswitch {i},R`, exactly like the button hit-areas.** `cb_button_push`/`cb_button_release` already exist and do exactly this (offset by `+4` for the 20 keypad buttons, since indices 0-3 are reserved for the 4 encoder switches); the knob handlers call the *unshifted* index directly into the same `cuia_queue.put_nowait(f"zynswitch {i},P")` pattern, so short/bold/long-press timing (handled entirely in `zynthian_gui.py`'s CUIA thread, `zynswitch_timing()`) works unchanged. No new press-timing logic.

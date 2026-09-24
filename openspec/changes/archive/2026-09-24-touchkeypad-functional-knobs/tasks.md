@@ -26,13 +26,13 @@
 
 - [x] 5.1 Bind `<Button-1>` on each `v5_knob_{index}` tag: show press-outline, `cuia_queue.put_nowait(f"zynswitch {index},P")`
 - [x] 5.2 Bind `<ButtonRelease-1>`: hide press-outline, `cuia_queue.put_nowait(f"zynswitch {index},R")`
-- [ ] 5.3 Manual test: short click on each knob reproduces the same effect as the equivalent keyboard binding (`KeyI`/`KeyK`/`KeyO`/`KeyL` → `ZYNSWITCH 0..3`) on at least one screen with distinct short/bold/long behavior
+- [x] 5.3 Manual test: short click on each knob reproduces the same effect as the equivalent keyboard binding (`KeyI`/`KeyK`/`KeyO`/`KeyL` → `ZYNSWITCH 0..3`) on at least one screen with distinct short/bold/long behavior - confirmed by the user ("I checked the button functions. they are mapping just fine").
 
 ## 6. Style scoping and device_cables alignment
 
 - [x] 6.1 Confirm `classic`/`standard` styles create no knob hit-areas/bindings (no chassis render exists to overlay in those styles) - `draw_knob_device()` is only ever called from inside the `if self.style in ("device", "device_cables")` branch of `__init__`
 - [x] 6.2 Confirm `device_cables`'s `cable_margin` offset is applied to knob y-coordinates identically to how it's applied to button/LED y-coordinates, so knobs stay aligned with the render when the cable-graphics strip is present
-- [ ] 6.3 Visual pass on both `device` and `device_cables` at the target display resolution; nudge `V5_KNOB_GROUP`/`V5_KNOB_SPACING_Y`/`V5_KNOB_RADIUS` if the hit-areas are visibly offset from the knob artwork (same iterative-tuning workflow used for `V5_BUTTON_*`/`V5_LED_*` in `touchkeypad-visual-styles`)
+- [x] 6.3 Visual pass on both `device` and `device_cables` at the target display resolution; nudge `V5_KNOB_GROUP`/`V5_KNOB_SPACING_Y`/`V5_KNOB_RADIUS` if the hit-areas are visibly offset from the knob artwork (same iterative-tuning workflow used for `V5_BUTTON_*`/`V5_LED_*` in `touchkeypad-visual-styles`) - user reported the rings too large, upper three knobs' hit-areas sitting too low, and the bottom knob's sitting too high (right edge already correct). Re-measured against the vendored render directly (pixel edge-detection script, not eyeballed) instead of guessing at a correction: true per-knob vertical spacing turned out non-uniform (200px, 208px, 213px between consecutive knobs, not a flat 198px), so switched from a single `V5_KNOB_TOP_Y`/`V5_KNOB_SPACING_Y` formula to an explicit `V5_KNOB_ROWS = (178, 378, 586, 799)` tuple, matching how `V5_BUTTON_ROWS` already handles non-uniform button-row spacing. Also shrank `V5_KNOB_RADIUS` 44→38 and nudged `V5_KNOB_CENTER_X` 1711→1718. Verified by overlaying candidate circles on the raw render asset for rapid iteration, then confirmed live against the running app's actual hover ring on all 4 knobs after restarting.
 
 ## 7. Documentation
 
