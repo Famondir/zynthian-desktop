@@ -267,7 +267,12 @@ RUN mkdir -p "$ZYNTHIAN_CONFIG_DIR" \
     "$ZYNTHIAN_MY_DATA_DIR/files/Neural Models" \
     "$ZYNTHIAN_DATA_DIR/collections" \
     "$ZYNTHIAN_CONFIG_DIR/jalv" \
-    && chmod -R a+rwX "$ZYNTHIAN_MY_DATA_DIR" "$ZYNTHIAN_CONFIG_DIR"
+    && chmod -R a+rwX "$ZYNTHIAN_MY_DATA_DIR" "$ZYNTHIAN_CONFIG_DIR" "$ZYNTHIAN_DIR/zynthian-webconf"
+# zynthian-webconf's own repo, same reasoning as above: cloned as root at
+# build time, but the container runs as a non-root user (run_zynthian_
+# docker.sh's --user). lib/upload_handler.py unconditionally os.mkdir()s
+# a tmp/ dir inside it at *import* time (no try/except) - crashes with a
+# bare PermissionError before the app ever starts without this.
 
 # --- 6. Container entrypoint ---
 COPY entrypoint.sh /usr/local/bin/zynthian-entrypoint.sh
