@@ -52,8 +52,16 @@ Default login password is `zynthian` — change it via `ZYNTHIAN_WEBCONF_PASSWOR
 
 FluidSynth looks in two places for `.sf2`/`.sf3` files, shown in the UI's bank list as separate sources: **System** (the factory set baked into the image/native install, read-only) and **User** — `$ZYNTHIAN_MY_DATA_DIR/soundfonts/sf2`. Drop your own files there (subdirectories become banks in the UI); no rescan command needed, they show up next time you open the Bank screen for a FluidSynth chain. SFZ instruments go in the sibling `soundfonts/sfz` directory the same way.
 
-- **Docker**: `run_zynthian_docker.sh` bind-mounts `$ZYNTHIAN_MY_DATA_DIR` (default `~/zynthian-my-data`, override via that env var) straight into the container at `/zynthian/zynthian-my-data` — it's the same filesystem, not a copy, so just copy your `.sf2`/`.sf3` files into `~/zynthian-my-data/soundfonts/sf2/` on the host. Works with the container already running, no restart needed.
+- **Docker**: `run_zynthian_docker.sh` bind-mounts `$ZYNTHIAN_MY_DATA_DIR` (default `~/zynthian-my-data`) straight into the container at `/zynthian/zynthian-my-data` — it's the same filesystem, not a copy, so just copy your `.sf2`/`.sf3` files into `~/zynthian-my-data/soundfonts/sf2/` on the host. Works with the container already running, no restart needed.
 - **Native**: same idea, directly at `/zynthian/zynthian-my-data/soundfonts/sf2`.
+
+Want the whole `zynthian-my-data` tree (soundfonts, presets, snapshots, everything) somewhere other than `~/zynthian-my-data` — a different drive, an existing soundfont library's parent folder, etc.? Set `ZYNTHIAN_MY_DATA_DIR` before running (Docker only; the native path is fixed at `/zynthian/zynthian-my-data`):
+
+```
+ZYNTHIAN_MY_DATA_DIR=/path/to/your/data ./run_zynthian_docker.sh
+```
+
+`run_zynthian_docker.sh` creates that top-level directory if it doesn't exist yet; the container itself then scaffolds the `soundfonts/sf2`/`soundfonts/sfz`/`presets`/... layout inside it on every start (idempotent, safe to reuse a directory from a previous run).
 
 ## Dev/testing tooling
 
