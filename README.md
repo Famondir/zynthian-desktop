@@ -48,6 +48,13 @@ Both the Docker image and the native install also run [`zynthian-webconf`](https
 
 Default login password is `zynthian` — change it via `ZYNTHIAN_WEBCONF_PASSWORD` (webconf's own in-app password-change page is disabled for this desktop port; PAM/root login doesn't apply here since neither environment runs as root).
 
+## Adding your own soundfonts
+
+FluidSynth looks in two places for `.sf2`/`.sf3` files, shown in the UI's bank list as separate sources: **System** (the factory set baked into the image/native install, read-only) and **User** — `$ZYNTHIAN_MY_DATA_DIR/soundfonts/sf2`. Drop your own files there (subdirectories become banks in the UI); no rescan command needed, they show up next time you open the Bank screen for a FluidSynth chain. SFZ instruments go in the sibling `soundfonts/sfz` directory the same way.
+
+- **Docker**: `run_zynthian_docker.sh` bind-mounts `$ZYNTHIAN_MY_DATA_DIR` (default `~/zynthian-my-data`, override via that env var) straight into the container at `/zynthian/zynthian-my-data` — it's the same filesystem, not a copy, so just copy your `.sf2`/`.sf3` files into `~/zynthian-my-data/soundfonts/sf2/` on the host. Works with the container already running, no restart needed.
+- **Native**: same idea, directly at `/zynthian/zynthian-my-data/soundfonts/sf2`.
+
 ## Dev/testing tooling
 
 - **`setup_virtual_devices.sh`** — sets up VMPK (virtual MIDI keyboard) + `snd-aloop` (virtual audio loopback) so you can develop/test without the physical Korg Fisa Suprema. See [openspec/specs/virtual-test-devices](openspec/specs/virtual-test-devices/spec.md).
