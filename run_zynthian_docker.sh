@@ -87,7 +87,7 @@ fi
 
 cleanup() {
     echo "--- Cleaning up ---"
-    kill "$WEBSOCKIFY_PID" "$X11VNC_PID" "$XVFB_PID" 2>/dev/null || true
+    kill "$WINDOW_TRACKER_PID" "$WEBSOCKIFY_PID" "$X11VNC_PID" "$XVFB_PID" 2>/dev/null || true
     echo "--- Restarting PipeWire ---"
     systemctl --user start pipewire.socket pipewire.service \
         pipewire-pulse.socket pipewire-pulse.service \
@@ -104,8 +104,16 @@ if [ "$DOCKER_DISPLAY_MODE" = "novnc" ]; then
     NOVNC_PORT="${NOVNC_PORT:-6081}"
     NOVNC_BIND="${NOVNC_BIND:-localhost}"
     NOVNC_DIR="$SCRIPT_DIR/noVNC"
-    XVFB_SIZE="1910x1120x24"
+    # See run_zynthian_vnc.sh's own comment: wider than device_cables'
+    # 1910px so standard's computed width (which can exceed it) doesn't
+    # get clipped - track_app_window makes oversizing this free.
+    XVFB_SIZE="2400x1120x24"
     start_novnc_viewer
+    # See novnc_viewer.sh's own comment: crops the noVNC view to the
+    # container's actual window once it appears, instead of the full
+    # (device_cables-sized) Xvfb canvas - matters for classic/standard,
+    # which render much smaller.
+    track_app_window
     CONTAINER_DISPLAY="$VNC_DISPLAY"
 else
     CONTAINER_DISPLAY="$DISPLAY"

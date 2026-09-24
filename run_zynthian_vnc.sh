@@ -34,18 +34,28 @@ NOVNC_PORT="${NOVNC_PORT:-6080}"
 NOVNC_BIND="${NOVNC_BIND:-localhost}"
 NOVNC_DIR="$SCRIPT_DIR/noVNC"
 
-# Matches device_cables' fixed native size (see run_zynthian.sh); classic/
-# standard/device all fit within this too since run_zynthian.sh adjusts
-# DISPLAY_WIDTH/HEIGHT itself for those styles.
-XVFB_SIZE="1910x1120x24"
+# Wider than device_cables' own 1910px fixed size: standard's computed
+# width (run_zynthian.sh's CLASSIC_PANEL arithmetic, scaled off whatever
+# DISPLAY_WIDTH zynthian_envars_custom.sh sets) can exceed even that - with
+# this repo's reference 1600 baseline it comes out to 2133, found live to
+# get clipped by a narrower Xvfb screen (real content missing, not just
+# padding). track_app_window (see novnc_viewer.sh) crops the noVNC view to
+# whatever the actual window turns out to be, so oversizing this is free -
+# no visible margin cost for the narrower styles. Height (1120) already
+# covers all four styles' observed heights.
+XVFB_SIZE="2400x1120x24"
 
 cleanup() {
     echo "--- Stopping websockify/x11vnc/Xvfb ---"
-    kill "$WEBSOCKIFY_PID" "$X11VNC_PID" "$XVFB_PID" 2>/dev/null || true
+    kill "$WINDOW_TRACKER_PID" "$WEBSOCKIFY_PID" "$X11VNC_PID" "$XVFB_PID" 2>/dev/null || true
 }
 trap cleanup EXIT
 
 start_novnc_viewer
+# See novnc_viewer.sh's own comment: crops the noVNC view to the app's
+# actual window once it appears, instead of the full (device_cables-sized)
+# Xvfb canvas - matters for classic/standard, which render much smaller.
+track_app_window
 
 echo "--- Starting Zynthian ($GUI_STYLE) on the virtual display ---"
 DISPLAY="$VNC_DISPLAY" /zynthian/run_zynthian.sh "$GUI_STYLE"

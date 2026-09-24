@@ -10,6 +10,10 @@
 # WEBSOCKIFY_PID as plain variables for the caller's own cleanup() trap to
 # kill; it does not install its own trap.
 #
+# Callers should also call track_app_window after start_novnc_viewer and
+# before launching the app itself (see that function's own comment) - sets
+# WINDOW_TRACKER_PID the same way.
+#
 # Variables the caller must set before calling start_novnc_viewer:
 #   VNC_DISPLAY   - X display number for Xvfb, e.g. ":97"
 #   VNC_PORT      - port x11vnc listens on
@@ -55,4 +59,55 @@ start_novnc_viewer() {
 
     echo "--- Open in a browser: http://$NOVNC_BIND:$NOVNC_PORT/vnc.html?host=$NOVNC_BIND&port=$NOVNC_PORT&resize=scale ---"
     echo "--- (or connect a raw VNC client to localhost:$VNC_PORT instead) ---"
+}
+
+# Xvfb is always sized for the largest GUI style (device_cables); classic/
+# standard/device all render smaller windows within that same canvas, and
+# x11vnc otherwise exports the *whole* canvas regardless of how much of it
+# the app's window actually fills - found live as a large black margin
+# around classic's much smaller window in the browser (see
+# openspec/changes/novnc-fit-to-window). Fix: once the app's window
+# appears, tell the already-running x11vnc (via its runtime remote-control
+# channel) to export just that window instead - confirmed live to resize
+# x11vnc's framebuffer to the window's exact size with no server restart.
+#
+# Runs as its own background loop (not by backgrounding the app launch
+# itself) so neither caller's foreground-app / Ctrl+C / trap-based-cleanup
+# behavior changes at all - see design.md's Decisions for why that
+# mattered enough to avoid touching.
+#
+# Matches by WM_CLASS "Tk" (Zynthian's own Tk root window), not "any
+# window" - a developer may have vmpk (support-virtual-test-devices)
+# running on the same display for MIDI testing, and its Qt window
+# ("vmpk"/"VMPK") must not be mistaken for Zynthian's.
+#
+# Best-effort: if the window never appears within the timeout, this just
+# exits quietly and x11vnc keeps exporting the full canvas (today's
+# behavior) - a viewing-quality enhancement, not something that should be
+# able to break the session if it fails.
+track_app_window() {
+    (
+        local elapsed=0
+        local timeout=60
+        local winid=""
+        while [ "$elapsed" -lt "$timeout" ]; do
+            winid="$(DISPLAY="$VNC_DISPLAY" xdotool search --class "Tk" 2>/dev/null | head -1)"
+            if [ -n "$winid" ]; then
+                break
+            fi
+            sleep 1
+            elapsed=$((elapsed + 1))
+        done
+
+        if [ -n "$winid" ]; then
+            # Brief settle delay - DISPLAY_WIDTH/HEIGHT are set very early
+            # in zynthian_gui.py's init, but give the window manager-less
+            # Tk root a moment to finish mapping at its final geometry
+            # before reading it.
+            sleep 1
+            env -u WAYLAND_DISPLAY -u XDG_SESSION_TYPE \
+                x11vnc -display "$VNC_DISPLAY" -R "id:$winid" > /dev/null 2>&1 || true
+        fi
+    ) &
+    WINDOW_TRACKER_PID=$!
 }
