@@ -1,14 +1,16 @@
 ## 1. Resolve open questions before building the engine
 
-- [ ] 1.1 Investigate whether "current screen" is readable from outside the process (log line, `.zss`-adjacent state file, or similar) - confirm whether `screen_is` assertions are feasible, or whether initial workflows rely on log-diff + structural checks only. Update design.md with the finding.
-- [ ] 1.2 Decide the workflow-script format (plain data file vs. small Python DSL) - pick whichever keeps step/assertion definitions environment-agnostic with the least ceremony. Note the decision in design.md.
-- [ ] 1.3 Enumerate the exact CUIA allow-list entries needed by the three starting workflows (task 7) - confirm each against `zynconf/zynthian_config.py`'s `NoteCuiaDefault` table.
+- [x] 1.1 Investigate whether "current screen" is readable from outside the process (log line, `.zss`-adjacent state file, or similar) - confirm whether `screen_is` assertions are feasible, or whether initial workflows rely on log-diff + structural checks only. Update design.md with the finding. Resolved: no external channel exists (`zynsigman` is in-process-only); decided to add one `logging.debug` line to the fork instead of relying on log-diff/structural checks alone - see design.md.
+- [x] 1.2 Decide the workflow-script format (plain data file vs. small Python DSL) - pick whichever keeps step/assertion definitions environment-agnostic with the least ceremony. Note the decision in design.md. Resolved: plain YAML step list.
+- [x] 1.3 Enumerate the exact CUIA allow-list entries needed by the three starting workflows (task 7) - confirm each against `zynconf/zynthian_config.py`'s `NoteCuiaDefault` table. Resolved: `ZYNSWITCH 0-3`, `SCREEN_CHAIN_MANAGER`, `SCREEN_MIXER`, `SCREEN_MIDI_RECORDER`, `ALL_NOTES_OFF` - see design.md.
+- [x] 1.4 (found while resolving 1.1) Add the one-line `logging.debug(f"SHOW SCREEN '{screen}'")` patch to `show_screen()` in the `Famondir/zynthian-ui` fork (`zyngui/zynthian_gui.py`, next to the existing `zynsigman.send(...)` call), so `screen_is` assertions can run through the same log-diff mechanism as error detection. Commit directly to the fork per `CLAUDE.md`'s convention (code fixes for the desktop port go there, not into this repo).
 
-## 2. Core MIDI/CUIA injection mechanism
+## 2. Core CUIA injection mechanism (OSC-based - see design.md's correction)
 
-- [ ] 2.1 Write the shared injection primitive: given a target session's VMPK/a2jmidid setup, send a `ZYNSWITCH <i>` press of a given duration (short/bold/long) via note-on + timed note-off, and a `SCREEN_<name>` jump via a single note-on/off pair - reusing `xdotool key` against VMPK's on-screen keyboard mapping, same technique as the archived `docker-automated-smoke-test`.
-- [ ] 2.2 Implement the CUIA allow-list check: reject any step whose target note maps (via `NoteCuiaDefault` or a configured override) to a CUIA not on the list, before injecting anything.
-- [ ] 2.3 Confirm press-duration timing against the target session's actual `zynswitch_bold_us`/`zynswitch_long_us` (read from its environment, don't hardcode the 300ms/2000ms defaults in the engine).
+- [x] 2.1 Write the shared injection primitive: `ZYNSWITCH <i>` press of a given duration (short/bold/long) via `/CUIA/ZYNSWITCH <i> P` then a timed `/CUIA/ZYNSWITCH <i> R` over OSC (port 1370, `zynconf.ServerPort["cuia_osc"]`), and a `SCREEN_<name>` jump via a single `/CUIA/SCREEN_<NAME>` message. No VMPK/Xvfb/pixel-coordinate dependency for these steps (superseded design.md's earlier VMPK-click plan once the OSC path was found). Implemented in `workflow_testing/injection.py` using `pyliblo3`.
+- [x] 2.2 Implement the CUIA allow-list check: reject any step whose target CUIA (or, for `ZYNSWITCH`, whose switch index) is not on the list, before sending anything over OSC. Implemented in `workflow_testing/allowlist.py`.
+- [x] 2.3 Confirm press-duration timing against the target session's actual `zynswitch_bold_us`/`zynswitch_long_us` (read from its environment, don't hardcode the 300ms/2000ms defaults in the engine). Covered by 2.1's implementation (`injection.py` reads thresholds from the target's env, falling back to the 300ms/2000ms defaults only if unset).
+- [ ] 2.4 Musical-note injection for audio verification (separate concern from 2.1-2.3 - CUIA has no generic "play this note" message): reuse `test_zynthian_docker.sh`'s proven VMPK mouse-click technique, unchanged, only for `reload_and_check_audio` (task 6.2) - narrower scope than originally planned (was going to cover switch/screen steps too).
 
 ## 3. Log-diff assertion
 
@@ -31,7 +33,8 @@
 
 ## 6. Structural and round-trip assertions
 
-- [ ] 6.1 Implement `save_snapshot` (trigger a save via CUIA/MIDI, locate the resulting `.zss` in the session's `zynthian-my-data/snapshots`) and a JSON-based structural assertion helper (`assert_zss`) against its `chains`/`slots` content.
+- [x] 6.1a Implement the JSON-based structural assertion helper (`assert_chain_has_engine`, `assert_chain_count`) against `chains`/`slots` content. Implemented in `workflow_testing/zss_assert.py`, verified against a real `.zss` on this machine (`/zynthian/zynthian-my-data/snapshots/default.zss` - confirmed chain count, FluidSynth engine code present/absent detection, missing-file handling all correct).
+- [ ] 6.1b Implement `save_snapshot` (trigger a save via CUIA, locate the resulting `.zss` in the session's `zynthian-my-data/snapshots`) - needs a live session to confirm which CUIA triggers a save and where it lands, deferred.
 - [ ] 6.2 Implement `reload_and_check_audio`: start a fresh session (either environment) that loads the just-saved `.zss` as its default snapshot, inject a note, confirm non-silent audio via the existing `jack_rec`+`sox` technique.
 
 ## 7. Starting workflow library
