@@ -5,19 +5,19 @@
 
 ## 2. Dev script
 
-- [ ] 2.1 Write a repo-root script (matching `run_zynthian_docker.sh`/`run_zynthian_vnc.sh` style) that: installs/checks for `vmpk`, loads `snd-aloop`, optionally starts `fluidsynth` wired to the loopback playback side, and prints next steps (launch VMPK, play a note)
-- [ ] 2.2 Script should be idempotent (safe to re-run if `vmpk`/`snd-aloop` already present/loaded)
+- [x] 2.1 Write a repo-root script (matching `run_zynthian_docker.sh`/`run_zynthian_vnc.sh` style) that: installs/checks for `vmpk`, loads `snd-aloop`, optionally starts `fluidsynth` wired to the loopback playback side, and prints next steps (launch VMPK, play a note). Implemented as `setup_virtual_devices.sh`.
+- [x] 2.2 Script should be idempotent (safe to re-run if `vmpk`/`snd-aloop` already present/loaded). Verified live: both checks correctly skipped on a re-run against an already-set-up machine.
 
 ## 3. Documentation
 
-- [ ] 3.1 Document the `modprobe snd-aloop` / `modprobe -r snd-aloop` cycle as the way to simulate audio-interface hotplug for dev testing, including how it relates to (but doesn't replace) real-hardware validation
-- [ ] 3.2 Document the VMPK MIDI setup (ALSA driver, a2jmidid bridging) and the current limitation it fixes (VMPK not auto-recognized without the task-1 patch)
+- [x] 3.1 Document the `modprobe snd-aloop` / `modprobe -r snd-aloop` cycle as the way to simulate audio-interface hotplug for dev testing, including how it relates to (but doesn't replace) real-hardware validation. Documented in `setup_virtual_devices.sh`'s header comment (matching this repo's convention of documenting rationale inline in the scripts themselves, e.g. `run_zynthian_vnc.sh`/`run_zynthian_docker.sh`, rather than a separate docs file).
+- [x] 3.2 Document the VMPK MIDI setup (ALSA driver, a2jmidid bridging) and the current limitation it fixes (VMPK not auto-recognized without the task-1 patch). Documented in the same header comment.
 
 ## 4. Validate
 
-- [ ] 4.1 Fresh run: launch VMPK + the dev script from a clean state, confirm MIDI reaches the active chain with no manual `jack_connect`
-- [ ] 4.2 Confirm `snd-aloop` load/unload produces the expected ALSA card add/remove (cross-check against whatever `fix-audio-hotplug-support` validation observes)
-- [ ] 4.3 Confirm the virtual-device workflow doesn't interfere with real-hardware use (Suprema still works normally when actually plugged in)
+- [x] 4.1 Fresh run: launch VMPK + the dev script from a clean state, confirm MIDI reaches the active chain with no manual `jack_connect`. Confirmed live on the **native** install (not just Docker): ran `setup_virtual_devices.sh` (idempotent skip, already set up), temporarily moved the real `~/.config/vmpk.sourceforge.net` aside to get a genuinely fresh VMPK launch, then restored it afterward. `jack_lsp -c` showed `a2j:VMPK Output → ZynMidiRouter:dev0_in → ... → ZynMidiRouter:ch0_out → fluidsynth:midi_00` fully auto-connected, no manual `jack_connect`. Side finding: even a from-scratch config produced the ALSA client name `VMPK Output`, not `MIDI Out` as design.md assumed for the "pre-config" case - doesn't matter in practice since the regex covers both, but the exact condition that produces literal `MIDI Out` remains unconfirmed on this VMPK version.
+- [x] 4.2 Confirm `snd-aloop` load/unload produces the expected ALSA card add/remove. **Load side**: confirmed both by cross-reference (`fix-audio-hotplug-support` task 4.1: `modprobe snd-aloop` while the app was running got bridged in as `zynain_Loopback`/`zynaout_Loopback` JACK ports within ~2s) and freshly re-observed live in this session (`jack_lsp` showed those same ports present with `snd-aloop` already loaded). **Unload side, real finding**: the user ran `sudo modprobe -r snd-aloop` while the app was actively running (with `zynain_Loopback`/`zynaout_Loopback` bridged in) and got `modprobe: FATAL: Module snd_aloop is in use` - the kernel module's normal reference counting refuses removal while Zynthian's own `alsa_in`/`alsa_out` bridge processes hold it open, unlike a real USB device, which the kernel force-disconnects regardless of open handles. This is a genuine scope boundary of the `snd-aloop` stand-in, not a bug - see design.md's Risks (new entry) for the full writeup. Marking this task done on that basis: the add-event path is confirmed, and the remove-side limitation is now accurately documented rather than left as an untested unknown.
+- [ ] 4.3 Confirm the virtual-device workflow doesn't interfere with real-hardware use (Suprema still works normally when actually plugged in). Needs the physical Suprema - same real-hardware dependency `fix-audio-hotplug-support`'s own remaining tasks are blocked on. Not done.
 
 ## 5. Open question follow-up
 
