@@ -193,8 +193,17 @@ def _run_step(step: Step, session, injector: injection.CuiaInjector, screen_trac
     return StepResult(step=step, passed=True)
 
 
+_SAVING_SNAPSHOT_RE = re.compile(r"Saving snapshot (.+) \.\.\.")
+# The container-internal (or, for native, host-identical) snapshots
+# directory every "Saving snapshot <path> ..." log line's path is
+# rooted at - stripped and rejoined onto session.snapshots_dir so the
+# result is always a host-visible path, regardless of which environment
+# logged it.
+_INTERNAL_SNAPSHOTS_DIR = "/zynthian/zynthian-my-data/snapshots"
+
+
 def save_snapshot(session, injector: injection.CuiaInjector) -> str:
-    """Trigger a snapshot save and return the resulting .zss path.
+    """Trigger a snapshot save and return the resulting, host-visible .zss path.
 
     Confirmed live (task 6.1b): the "SAVE" action on the `snapshot`
     screen is a list entry (`zyngui/zynthian_gui_snapshot.py`'s
@@ -206,19 +215,36 @@ def save_snapshot(session, injector: injection.CuiaInjector) -> str:
     so confirming immediately accepts that default text without needing
     to type anything.
 
-    In practice (confirmed live, reproducibly) this sequence writes
-    `last_state.zss` via a different internal path than the named-save
-    flow the code first suggested (an options-menu confirm, not the
-    keyboard) - but the end result is the same: a fresh, current-state
-    snapshot at a deterministic, discoverable path, which is exactly
-    what this function's callers need. See design.md for the full
-    investigation.
+    The exact list position this lands on - and therefore the exact
+    resulting filename - depends on what's *already* in the target
+    session's snapshot banks: a session with pre-existing snapshots (found
+    live: this project's own long-reused native install) can land on a
+    different list entry than a genuinely fresh one (found live: a Docker
+    session's empty scratch my-data), producing a different save path
+    each time (`last_state.zss` vs `000/001-New Snapshot.zss`, both seen
+    live). Rather than assume either, this parses the actual path from
+    zynthian_state_manager.save_snapshot()'s own
+    `"Saving snapshot <path> ..."` INFO log line - correct regardless of
+    which internal path the confirm sequence happened to trigger.
     """
+    mark = log_diff.mark_tail(session.ui_log_path)
     injector.screen_jump("SCREEN_SNAPSHOT")
     injector.select_list_item(0)
     injector.confirm_selection("short")
     injector.confirm_selection("short")
-    return f"{session.snapshots_dir}/last_state.zss"
+    new_lines = log_diff.wait_for_stable_tail(mark)
+
+    for line in new_lines:
+        m = _SAVING_SNAPSHOT_RE.search(line)
+        if m:
+            internal_path = m.group(1)
+            relative = os.path.relpath(internal_path, _INTERNAL_SNAPSHOTS_DIR)
+            return os.path.join(session.snapshots_dir, relative)
+
+    raise RuntimeError(
+        "save_snapshot: no 'Saving snapshot <path> ...' log line seen after the confirm sequence - "
+        f"log tail was: {new_lines}"
+    )
 
 
 class AudioCheckError(Exception):

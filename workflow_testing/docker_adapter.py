@@ -193,7 +193,20 @@ def launch(
     # skips it. An empty file is enough to satisfy the cp step.
     config_file = os.path.join(scratch_dir, "zynthian_envars_custom.sh")
     with open(config_file, "w") as f:
-        f.write("#!/bin/bash\n")
+        f.write(
+            "#!/bin/bash\n"
+            # This container has no systemd at all - zynthian_state_manager's
+            # default_bluetooth() (called once during boot) calls
+            # `systemctl start bluetooth` unless told Bluetooth is already
+            # off, which fails loudly (found live: logged at ERROR,
+            # breaking a workflow step's zero-tolerance log-diff). The
+            # native install's own zynthian_envars_custom.sh sets this to
+            # "1" instead (real systemd/bluetooth present there, so
+            # is_service_active() short-circuits before ever reaching that
+            # failing command) - this headless test adapter has no real
+            # Bluetooth hardware either way, so just disable it outright.
+            'export ZYNTHIAN_MIDI_BLE_ENABLED="0"\n'
+        )
 
     subprocess.run(["docker", "rm", "-f", container_name], capture_output=True)
 
