@@ -131,8 +131,13 @@ def _wait_for_jack_server(server_name: str, timeout_s: float = 10.0) -> None:
     raise RuntimeError(f"JACK server '{server_name}' never became ready within {timeout_s}s")
 
 
-def _wait_for_ui_ready(ui_log_path: str, ui_proc: subprocess.Popen, timeout_s: float = 30.0) -> None:
+def wait_for_ui_ready(ui_log_path: str, is_alive, timeout_s: float = 30.0) -> None:
     """Block until zynthian_main.py has finished booting, not just started.
+
+    Shared by both environment adapters (native: a local Popen's
+    `.poll() is None`; Docker: `docker ps` reachability) - the boot-
+    completion signal itself is identical either way, only "is the
+    process still alive" differs.
 
     The OSC server ("ZYNTHIAN-UI OSC server running") comes up well before
     boot actually finishes - snapshot loading, engine startup and
@@ -147,10 +152,8 @@ def _wait_for_ui_ready(ui_log_path: str, ui_proc: subprocess.Popen, timeout_s: f
     """
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
-        if ui_proc.poll() is not None:
-            raise RuntimeError(
-                f"zynthian_main.py exited during boot (code {ui_proc.returncode}) - see {ui_log_path}"
-            )
+        if not is_alive():
+            raise RuntimeError(f"zynthian_main.py exited during boot - see {ui_log_path}")
         try:
             if "SHOW SCREEN" in open(ui_log_path).read():
                 return
@@ -254,7 +257,18 @@ def launch(
     # is enough for it to attach to the target server.
     time.sleep(1.0)
 
-    ui_env = _real_lib_env({"JACK_DEFAULT_SERVER": jack_server_name, "DISPLAY": display})
+    # PYTHONUNBUFFERED: without it, zynthian_main.py's stdout/stderr are
+    # block-buffered (not a TTY) - log lines can be *generated* well
+    # before they're actually *flushed to the file*. Found live: this
+    # broke the log-diff assertion (workflow_testing/log_diff.py), which
+    # assumes byte-offset order matches generation order - a harmless
+    # boot-time line (Bluetooth's "Bad controller address") showed up
+    # flushed late, inside a workflow step's diff window that started
+    # well after that line was actually logged, misattributing it as a
+    # regression introduced by that step.
+    ui_env = _real_lib_env(
+        {"JACK_DEFAULT_SERVER": jack_server_name, "DISPLAY": display, "PYTHONUNBUFFERED": "1"}
+    )
     launch_script = (
         f"source {ENVARS_CUSTOM_SH} && "
         f"source {VENV_ACTIVATE_SH} && "
@@ -269,7 +283,7 @@ def launch(
         stderr=subprocess.STDOUT,
     )
 
-    _wait_for_ui_ready(ui_log_path, ui_proc)
+    wait_for_ui_ready(ui_log_path, lambda: ui_proc.poll() is None)
 
     return NativeSession(
         display=display,
