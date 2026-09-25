@@ -73,6 +73,12 @@ class Step:
       highlighted - `injection.confirm_selection`.
     - `arrow: right|left` - cycle the current screen's category/tab -
       `injection.arrow`.
+    - `play_note: true` - inject a real musical MIDI note via VMPK
+      (`musical_note.play_note`) - CUIA has no generic "play a note"
+      message (see injection.py's module docstring), and this is the
+      only step kind that needs a real MIDI path rather than the OSC
+      CUIA one. `run_workflow()` starts/stops VMPK automatically for the
+      whole run when any step uses this.
     """
 
     screen: str | None = None
@@ -82,15 +88,24 @@ class Step:
     select: int | None = None
     confirm: injection.PressDuration | None = None
     arrow: str | None = None
+    play_note: bool = False
     assert_screen_is: str | None = None
 
     def __post_init__(self) -> None:
-        action_fields = (self.screen, self.zynswitch, self.cuia, self.select, self.confirm, self.arrow)
+        action_fields = (
+            self.screen,
+            self.zynswitch,
+            self.cuia,
+            self.select,
+            self.confirm,
+            self.arrow,
+            self.play_note or None,
+        )
         set_count = sum(1 for f in action_fields if f is not None)
         if set_count != 1:
             raise ValueError(
-                "Step needs exactly one of 'screen', 'zynswitch', 'cuia', 'select', 'confirm', 'arrow' "
-                f"- got {set_count}"
+                "Step needs exactly one of 'screen', 'zynswitch', 'cuia', 'select', 'confirm', 'arrow', "
+                f"'play_note' - got {set_count}"
             )
 
     def describe(self) -> str:
@@ -104,7 +119,9 @@ class Step:
             return f"select:{self.select}"
         if self.confirm is not None:
             return f"confirm:{self.confirm}"
-        return f"arrow:{self.arrow}"
+        if self.arrow is not None:
+            return f"arrow:{self.arrow}"
+        return "play_note"
 
 
 @dataclass
@@ -114,6 +131,13 @@ class Workflow:
     save_snapshot: bool = False
     assert_zss: dict = field(default_factory=dict)
     reload_and_check_audio: bool = False
+    # Assert at least one new file with this extension (e.g. "mid") landed
+    # in <my_data_dir>/capture/ during the workflow's steps (task 7.3 -
+    # MIDI recording has no snapshot-based result to check via assert_zss,
+    # just a file dropped in a known, fixed directory
+    # (zynthian_state_manager.capture_dir_sdc) under an unpredictable,
+    # timestamp-based name).
+    assert_new_capture_file: str | None = None
 
 
 @dataclass
@@ -150,6 +174,7 @@ def load_workflow(path: str | Path) -> Workflow:
                 select=raw_step.get("select"),
                 confirm=raw_step.get("confirm"),
                 arrow=raw_step.get("arrow"),
+                play_note=raw_step.get("play_note", False),
                 assert_screen_is=assert_block.get("screen_is"),
             )
         )
@@ -160,6 +185,7 @@ def load_workflow(path: str | Path) -> Workflow:
         save_snapshot=data.get("save_snapshot", False),
         assert_zss=data.get("assert_zss", {}),
         reload_and_check_audio=data.get("reload_and_check_audio", False),
+        assert_new_capture_file=data.get("assert_new_capture_file"),
     )
 
 
@@ -208,8 +234,10 @@ def _run_step(step: Step, session, injector: injection.CuiaInjector, screen_trac
         injector.select_list_item(step.select)
     elif step.confirm is not None:
         injector.confirm_selection(step.confirm)
-    else:
+    elif step.arrow is not None:
         injector.arrow(step.arrow)
+    else:
+        musical_note.play_note(session.display)
 
     new_lines = log_diff.wait_for_stable_tail(mark)
 
@@ -435,18 +463,47 @@ def run_workflow(workflow: Workflow, session, injector: injection.CuiaInjector, 
     screen_tracker = _ScreenTracker()
     screen_tracker.seed(session.ui_log_path)
 
-    step_results = []
-    for step in workflow.steps:
-        result = _run_step(step, session, injector, screen_tracker)
-        step_results.append(result)
-        if not result.passed:
-            # Fail fast: a failed step leaves state that later steps
-            # weren't written to handle (same reasoning as tasks.md's
-            # "fail-fast on contention" requirement for session setup).
-            return WorkflowResult(workflow_name=workflow.name, step_results=step_results)
+    capture_dir = None
+    capture_files_before: set[str] = set()
+    if workflow.assert_new_capture_file:
+        capture_dir = os.path.join(os.path.dirname(session.snapshots_dir), "capture")
+        capture_files_before = set(os.listdir(capture_dir)) if os.path.isdir(capture_dir) else set()
+
+    vmpk_proc = None
+    vmpk_home = None
+    if any(step.play_note for step in workflow.steps):
+        vmpk_proc, vmpk_home = _start_vmpk(session.display)
+        musical_note.wait_for_vmpk_window(session.display)
+        _wait_for_vmpk_autoconnect(session)
+
+    try:
+        step_results = []
+        for step in workflow.steps:
+            result = _run_step(step, session, injector, screen_tracker)
+            step_results.append(result)
+            if not result.passed:
+                # Fail fast: a failed step leaves state that later steps
+                # weren't written to handle (same reasoning as tasks.md's
+                # "fail-fast on contention" requirement for session setup).
+                return WorkflowResult(workflow_name=workflow.name, step_results=step_results)
+    finally:
+        if vmpk_proc is not None:
+            vmpk_proc.terminate()
+            vmpk_proc.wait(timeout=5.0)
+        if vmpk_home is not None:
+            shutil.rmtree(vmpk_home, ignore_errors=True)
 
     workflow_level_error = None
     try:
+        if workflow.assert_new_capture_file:
+            ext = workflow.assert_new_capture_file
+            new_files = set(os.listdir(capture_dir)) - capture_files_before if os.path.isdir(capture_dir) else set()
+            matching = [f for f in new_files if f.endswith(f".{ext}")]
+            if not matching:
+                raise zss_assert.ZssAssertionError(
+                    f"No new .{ext} file appeared in {capture_dir} during this workflow "
+                    f"(new files seen: {sorted(new_files)})"
+                )
         if workflow.save_snapshot:
             zss_path = save_snapshot(session, injector)
             if workflow.assert_zss:

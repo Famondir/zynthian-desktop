@@ -156,6 +156,12 @@ Adding a processor to an *existing* chain (rather than 7.1's build-a-new-chain f
 
 The amp-sim engine itself (GxPlexi, a real guitarix "Power Amp simulation" plugin - confirmed via its own `engine_config.json` entry, not assumed from its name) was found the same way as FluidSynth's position: `zynthian_lv2.engine_categories["Audio Effect"]` puts `"Simulator"` 9 tabs to the right of the engine screen's default `"Delay"` category, and it's the 9th enabled entry (index 8) there in this machine's current plugin registry - one more data point that most `Audio Effect`/`MIDI Synth` category lists on this install are dominated by LV2/JALV plugins, some working, some not, and that reading the actual registry files beats guessing at list positions.
 
+### Task 7.3's `play_note` step and `assert_new_capture_file`
+
+MIDI recording (`START_MIDI_RECORD`/`STOP_MIDI_RECORD`, both plain parameterless CUIAs) has no snapshot-shaped result to check via `assert_zss` - the recorded file lands at `<my_data_dir>/capture/<timestamp>[_<snapshot-name>].mid` (`zynthian_state_manager.get_new_capture_fpath()`), an unpredictable name in a fixed, known directory. `Workflow` gained `assert_new_capture_file: <ext>`, checked by marking that directory's contents before the workflow's steps run and diffing after - the same "don't guess the exact path, work with the directory instead" spirit as `reload_and_check_audio`'s RMS check, just simpler since there's no log line to parse here at all.
+
+Found live: a recording with zero MIDI events produces *no file whatsoever* - `zynsmf.save()` (the underlying C call `stop_midi_record()` makes) silently returns `False`, no exception, no log line. A real note has to actually play during the recording window. Since CUIA has no generic "play a note" message (the same constraint `reload_and_check_audio` already worked around with VMPK, see its own decision above), `Step` gained a fifth, final action kind: `play_note: true`, calling `musical_note.play_note` exactly like `reload_and_check_audio` does. Rather than duplicate VMPK lifecycle management into every step that might need it, `run_workflow()` scans the whole step list up front and starts/stops VMPK once for the run if any step uses `play_note` - the same "start it lazily, only when actually needed" reasoning that kept it out of the adapters' own `launch()` in the first place.
+
 ### CUIA allow-list contents (task 1.3) - resolved
 
 Enumerated from `zynconf/zynthian_config.py`'s `NoteCuiaDefault` against what the three starting workflows (task 7) need:

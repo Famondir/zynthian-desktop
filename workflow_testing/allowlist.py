@@ -51,6 +51,10 @@ ALLOWED_CUIAS = frozenset({
     # (create/modify/remove), and none of it reaches SCREEN_ADMIN or
     # anything system-level.
     "CHAIN_OPTIONS",
+    # For MIDI recording (task 7.3): plain start/stop, no navigation
+    # implications at all.
+    "START_MIDI_RECORD",
+    "STOP_MIDI_RECORD",
 })
 
 # ZYNSWITCH indices a workflow step may press. Index range on TOUCH_ONLY

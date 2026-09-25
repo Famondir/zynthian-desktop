@@ -1,0 +1,31 @@
+# Set up MIDI recording (task 7.3): start/stop via CUIA, confirm a
+# capture file was produced. Unlike 7.1/7.2, the result here has no
+# snapshot-based content to check via assert_zss - stop_midi_record()
+# (zyngine/zynthian_state_manager.py) always writes a file to
+# <my_data_dir>/capture/ under an unpredictable, timestamp-based name
+# (zynthian_state_manager.get_new_capture_fpath()) regardless of whether
+# any notes were actually played during the recording, so
+# assert_new_capture_file just diffs that directory's contents instead.
+#
+# Found live: zynsmf.save() (the actual file write, on STOP_MIDI_RECORD)
+# silently returns False - no error logged, no file written - for a
+# recording with zero MIDI events. A real note has to be played during
+# the recording window for a file to actually appear; play_note (VMPK)
+# is the only step kind that can do that (CUIA has no generic "play a
+# note" message - see injection.py).
+name: record-midi
+steps:
+  # First-ever navigation after boot can lazily trigger engine loading
+  # and land on a different screen than requested - see
+  # build_fluidsynth_chain.yaml's own comment on this. Absorbed here so
+  # START_MIDI_RECORD isn't the very first thing this session ever does.
+  - screen: SCREEN_MIXER
+    assert:
+      screen_is: mixer
+  - screen: SCREEN_MIDI_RECORDER
+    assert:
+      screen_is: midi_recorder
+  - cuia: START_MIDI_RECORD
+  - play_note: true
+  - cuia: STOP_MIDI_RECORD
+assert_new_capture_file: mid
