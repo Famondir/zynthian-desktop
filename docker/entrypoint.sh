@@ -26,11 +26,19 @@ mkdir -p \
     "$ZYNTHIAN_MY_DATA_DIR/soundfonts/sf2" \
     "$ZYNTHIAN_MY_DATA_DIR/soundfonts/sfz" \
     "$ZYNTHIAN_MY_DATA_DIR/files/Neural Models" \
+    "$ZYNTHIAN_MY_DATA_DIR/files/Midi/patterns" \
     "$ZYNTHIAN_MY_DATA_DIR/midi-profiles" \
     "$ZYNTHIAN_MY_DATA_DIR/snapshots" \
     "$ZYNTHIAN_MY_DATA_DIR/capture" \
     "$ZYNTHIAN_MY_DATA_DIR/sounds" \
     "$ZYNTHIAN_MY_DATA_DIR/uploads"
+
+# files/Midi/capture is a symlink to capture/ on real installs (see
+# zynthian-sys's setup_system_raspioslite_64bit_trixie.sh) - without it,
+# opening the MIDI recorder screen (zyngui/zynthian_gui_midi_recorder.py)
+# throws FileNotFoundError, found live while validating
+# add-workflow-smoke-testing's log-diff assertion against a real regression.
+[ -e "$ZYNTHIAN_MY_DATA_DIR/files/Midi/capture" ] || ln -s "$ZYNTHIAN_MY_DATA_DIR/capture" "$ZYNTHIAN_MY_DATA_DIR/files/Midi/capture"
 
 # Host-specific overrides (JACKD_OPTIONS, DISPLAY_WIDTH, SOUNDCARD_NAME, ...)
 # bind-mounted by run_zynthian_docker.sh; safe to skip if not mounted.
