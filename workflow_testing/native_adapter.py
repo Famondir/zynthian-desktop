@@ -163,11 +163,15 @@ def wait_for_ui_ready(ui_log_path: str, is_alive, timeout_s: float = 30.0) -> No
     raise RuntimeError(f"zynthian_main.py did not finish booting within {timeout_s}s - see {ui_log_path}")
 
 
+NATIVE_MY_DATA_DIR = "/zynthian/zynthian-my-data"
+
+
 @dataclass
 class NativeSession:
     display: str
     jack_server_name: str
     ui_log_path: str
+    snapshots_dir: str
     _xvfb_proc: subprocess.Popen = field(repr=False)
     _jackd_proc: subprocess.Popen = field(repr=False)
     _a2jmidid_proc: subprocess.Popen = field(repr=False)
@@ -191,6 +195,13 @@ class NativeSession:
             env=env,
             check=True,
         )
+
+    def list_port_connections(self, port_name: str) -> list[str]:
+        """Return the JACK ports `port_name` is currently connected to."""
+        env = _real_lib_env({"JACK_DEFAULT_SERVER": self.jack_server_name})
+        result = subprocess.run(["jack_lsp", "-c", port_name], env=env, capture_output=True, text=True)
+        lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        return lines[1:] if lines else []
 
     def teardown(self) -> None:
         """Stop every process this session started, in reverse start order.
@@ -221,8 +232,15 @@ def launch(
     jack_server_name: str = DEFAULT_JACK_SERVER_NAME,
     ui_log_path: str | None = None,
     xvfb_size: str = "1600x960x24",
+    my_data_dir: str | None = None,
 ) -> NativeSession:
     """Start an isolated native session: Xvfb, dummy JACK, a2jmidid, zynthian_main.py.
+
+    `my_data_dir`: accepted for interface symmetry with docker_adapter.launch()
+    (so runner.reload_and_check_audio can call either adapter's launch()
+    uniformly) but otherwise unused - the native install's zynthian-my-data
+    is always the single fixed NATIVE_MY_DATA_DIR path, there's no
+    per-session scratch tree to redirect.
 
     Call check_no_contention() first - this doesn't call it itself, so
     callers control exactly when that check runs relative to their own
@@ -289,6 +307,7 @@ def launch(
         display=display,
         jack_server_name=jack_server_name,
         ui_log_path=ui_log_path,
+        snapshots_dir=f"{NATIVE_MY_DATA_DIR}/snapshots",
         _xvfb_proc=xvfb_proc,
         _jackd_proc=jackd_proc,
         _a2jmidid_proc=a2jmidid_proc,

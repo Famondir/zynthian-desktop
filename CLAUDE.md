@@ -14,3 +14,9 @@ This repo (`Akkordeon/Zynthian`) holds the orchestration/dev-tooling layer: `doc
 The Docker image (`docker/Dockerfile`) clones its own fresh copy of `zynthian-ui` and `zynthian-webconf` (same forks/branches) at build time - it does **not** use `/zynthian/zynthian-ui` or `/zynthian/zynthian-webconf`, which are only relevant to the native install.
 
 When implementing an `openspec` change that touches application behavior, check whether the actual edit belongs in `/zynthian/zynthian-ui` (or `/zynthian/config`) rather than in this repo.
+
+## Committing and pushing
+
+Standing permission: commit and push freely when it's useful to the work at hand — this repo, and the `zynthian-ui`/`zynthian-webconf` forks under `/zynthian/`. No need to ask first each time.
+
+This matters in practice for the forks specifically: `docker/Dockerfile` clones `zynthian-ui`/`zynthian-webconf` from their **pushed** GitHub state (`Famondir/...`), never from the local `/zynthian/zynthian-ui`/`zynthian-webconf` checkouts. A local-only commit on a fork is invisible to a Docker rebuild no matter how many times `--build-arg CACHEBUST=...` is used — push it first, or the rebuild silently stays stale. (Found live: a rebuild kept missing two already-committed fork fixes until this was diagnosed via `git rev-list --left-right --count fork/vangelis...vangelis` and the commits were pushed - see `openspec/changes/add-workflow-smoke-testing/design.md`'s "Unpushed fork commits silently made a 'fresh' image stale again".)

@@ -85,10 +85,13 @@ class DockerSession:
     container_name: str
     osc_port: int
     ui_log_path: str
+    snapshots_dir: str
     _xvfb_proc: subprocess.Popen = field(repr=False)
     _logs_tail_proc: subprocess.Popen = field(repr=False)
     _ui_log_file: object = field(repr=False)
     _scratch_dir: str = field(repr=False)
+    _my_data_dir: str = field(repr=False)
+    _owns_my_data_dir: bool = field(repr=False)
 
     def is_ui_alive(self) -> bool:
         return _is_container_running(self.container_name)
@@ -114,6 +117,16 @@ class DockerSession:
             check=True,
         )
 
+    def list_port_connections(self, port_name: str) -> list[str]:
+        """Return the JACK ports `port_name` is currently connected to."""
+        result = subprocess.run(
+            ["docker", "exec", self.container_name, "jack_lsp", "-c", port_name],
+            capture_output=True,
+            text=True,
+        )
+        lines = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        return lines[1:] if lines else []
+
     def teardown(self) -> None:
         """Stop the container and every host-side helper process this
         session started."""
@@ -131,7 +144,14 @@ class DockerSession:
                 proc.kill()
                 proc.wait(timeout=2.0)
         self._ui_log_file.close()
+        # Always this session's own scratch dir (just the config file).
         shutil.rmtree(self._scratch_dir, ignore_errors=True)
+        # my_data_dir only if this session created it itself - an
+        # externally-provided one (see launch()'s my_data_dir docstring,
+        # task 6.2's reload_and_check_audio) outlives this session on
+        # purpose, since a second session needs to boot from it next.
+        if self._owns_my_data_dir:
+            shutil.rmtree(self._my_data_dir, ignore_errors=True)
 
 
 def launch(
@@ -142,17 +162,26 @@ def launch(
     osc_host_port: int = DEFAULT_OSC_HOST_PORT,
     ui_log_path: str | None = None,
     xvfb_size: str = "1600x960x24",
+    my_data_dir: str | None = None,
 ) -> DockerSession:
     """Start an isolated Docker session: Xvfb, the container (dummy JACK
     driver, no real audio hardware), and a `docker logs -f` tail.
 
     Call check_no_contention() first - same convention as native_adapter,
     callers control exactly when that check runs.
+
+    `my_data_dir`: reuse an existing zynthian-my-data tree (e.g. another
+    session's, to reload a snapshot it just saved - see runner.py's
+    reload_and_check_audio, task 6.2) instead of creating a fresh, empty
+    one. A freshly-created one is this session's own (deleted by
+    teardown()); a passed-in one is not (outlives this session - the
+    whole point of passing it in is for something else to use it next).
     """
     ui_log_path = ui_log_path or f"/tmp/workflow_test_docker_ui_{os.getpid()}.log"
     scratch_dir = tempfile.mkdtemp(prefix="zynthian-workflow-test.")
-    my_data_dir = os.path.join(scratch_dir, "zynthian-my-data")
-    os.makedirs(my_data_dir, exist_ok=True)
+    owns_my_data_dir = my_data_dir is None
+    if my_data_dir is None:
+        my_data_dir = tempfile.mkdtemp(prefix="zynthian-workflow-test-my-data.")
 
     # entrypoint.sh only creates /zynthian/config/zynthian_envars.sh (which
     # zynconf/zynthian_config.py reads directly, unconditionally, at
@@ -184,6 +213,15 @@ def launch(
         [
             "docker", "run", "-d",
             "--name", container_name,
+            # Not for the dummy JACK driver (which never touches it) -
+            # a2jmidid needs the host's real /dev/snd/seq to bridge a
+            # host-side VMPK process into the container's JACK graph for
+            # reload_and_check_audio (task 6.2). Same flag
+            # test_zynthian_docker.sh already validated for this exact
+            # purpose. --group-add audio for device permission, matching
+            # that script too.
+            "--device", "/dev/snd",
+            "--group-add", "audio",
             "--cap-add=SYS_NICE",
             "--ulimit", "rtprio=95",
             "--ulimit", "memlock=-1",
@@ -223,8 +261,11 @@ def launch(
         container_name=container_name,
         osc_port=osc_host_port,
         ui_log_path=ui_log_path,
+        snapshots_dir=os.path.join(my_data_dir, "snapshots"),
         _xvfb_proc=xvfb_proc,
         _logs_tail_proc=logs_tail_proc,
         _ui_log_file=ui_log_file,
         _scratch_dir=scratch_dir,
+        _my_data_dir=my_data_dir,
+        _owns_my_data_dir=owns_my_data_dir,
     )

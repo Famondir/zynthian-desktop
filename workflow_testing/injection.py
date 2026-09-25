@@ -96,3 +96,22 @@ class CuiaInjector:
         """Fire a simple, parameterless CUIA (e.g. ALL_NOTES_OFF)."""
         check_cuia(cuia)
         self._send(cuia)
+
+    def select_list_item(self, index: int) -> None:
+        """Move the current screen's list selection to `index` (no confirm).
+
+        Maps to zynthian_gui's cuia_select -> screen.select(index) - moves
+        the highlight only, doesn't trigger the item's action. See
+        confirm_selection() for that.
+        """
+        check_cuia("SELECT")
+        self._send("SELECT", index)
+
+    def confirm_selection(self, press: PressDuration = "short") -> None:
+        """Confirm ('select_action') whatever's currently highlighted on
+        the current screen - the OSC equivalent of a physical SELECT/YES
+        switch press. Maps to cuia_select_action -> screen.switch_select().
+        """
+        press_code = {"short": "S", "bold": "B", "long": "L"}[press]
+        check_cuia("SELECT_ACTION")
+        self._send("SELECT_ACTION", press_code)

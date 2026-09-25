@@ -23,6 +23,18 @@ ALLOWED_CUIAS = frozenset({
     "SCREEN_MIXER",
     "SCREEN_MIDI_RECORDER",
     "ALL_NOTES_OFF",
+    # For save_snapshot (task 6.1b): navigate to the snapshot screen, then
+    # SELECT <index> to move the list highlight (no confirm) and
+    # SELECT_ACTION <press> to confirm whatever's currently highlighted.
+    # SELECT/SELECT_ACTION are generic "confirm the current screen's
+    # highlighted list item" actions, not scoped to snapshot alone - safe
+    # here specifically because every screen a workflow can reach is
+    # already on this same allow-list (SCREEN_ADMIN is in _NEVER_ALLOW and
+    # unreachable), none of which expose a destructive action behind a
+    # single list confirm.
+    "SCREEN_SNAPSHOT",
+    "SELECT",
+    "SELECT_ACTION",
 })
 
 # ZYNSWITCH indices a workflow step may press. Index range on TOUCH_ONLY
