@@ -13,15 +13,41 @@
 # the recording window for a file to actually appear; play_note (VMPK)
 # is the only step kind that can do that (CUIA has no generic "play a
 # note" message - see injection.py).
+#
+# Also found live: a played note only gets captured if it actually
+# reaches a MIDI-receiving chain - a genuinely fresh session (no
+# pre-existing chain at all, e.g. Docker's empty scratch my_data_dir)
+# still produces zero capturable MIDI events even with a note "played",
+# for the same underlying reason a fresh session has nothing for the
+# note to route to. This workflow builds a FluidSynth chain first (same
+# sequence as build_fluidsynth_chain.yaml) so there's always something
+# for the note to reach, regardless of what a given session already had
+# loaded - this project's own long-reused native install happened to
+# already have one, which is what let an earlier, chain-less version of
+# this workflow pass there while silently failing in Docker.
 name: record-midi
 steps:
   # First-ever navigation after boot can lazily trigger engine loading
   # and land on a different screen than requested - see
   # build_fluidsynth_chain.yaml's own comment on this. Absorbed here so
-  # START_MIDI_RECORD isn't the very first thing this session ever does.
+  # ADD_CHAIN isn't the very first thing this session ever does.
   - screen: SCREEN_MIXER
     assert:
       screen_is: mixer
+  - cuia: ADD_CHAIN
+    assert:
+      screen_is: add_chain
+  - select: 0  # "Instrument"
+  - confirm: short
+    assert:
+      screen_is: engine
+  - arrow: right  # Synth category -> Sampler category
+  - select: 0  # FluidSynth
+  - confirm: short
+    assert:
+      screen_is: midi_chan
+  - select: 0  # first available MIDI channel
+  - confirm: short
   - screen: SCREEN_MIDI_RECORDER
     assert:
       screen_is: midi_recorder
