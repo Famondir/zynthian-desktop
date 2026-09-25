@@ -1,0 +1,64 @@
+# Add an amp-simulator effect to an existing chain (task 7.2). Builds a
+# FluidSynth chain first (same sequence as build_fluidsynth_chain.yaml -
+# duplicated rather than composed, since this engine has no workflow-
+# composition mechanism and the two are short enough that duplication
+# costs less than adding one), then adds an audio effect via that
+# chain's own options menu.
+#
+# Step sequence found live (see design.md): CHAIN_OPTIONS opens the
+# active chain's option list; both "Add MIDI-FX" and "Add Audio-FX"
+# appear for a synth chain (it accepts MIDI input and produces audio
+# output) - "Add Audio-FX" is list index 1 (the "> PROCESSORS" section
+# header itself isn't a selectable index). That opens the engine screen
+# again, this time scoped to Audio Effect type: index 0 there is "None"
+# (Audio Effect/MIDI Tool types offer a no-op "leave this slot empty"
+# choice the Instrument-type list doesn't have), and the category tabs
+# start on "Delay". zynthian_lv2.engine_categories["Audio Effect"] is
+# ("Delay", "Distortion", "Dynamics", "Filter & EQ", "Modulation",
+# "Panning", "Spatial", "Pitch", "Reverb", "Simulator", "Analyzer",
+# "Other") - "Simulator" (amp/cabinet/tape sims) is 9 categories to the
+# right. GxPlexi ("Power Amp simulation", confirmed via
+# engine_config.json's own DESCR field), a real guitarix amp simulator,
+# is that category's 9th enabled entry (index 8) in this machine's
+# current engine registry.
+name: add-amp-effect
+steps:
+  - screen: SCREEN_MIXER
+    assert:
+      screen_is: mixer
+  - cuia: ADD_CHAIN
+    assert:
+      screen_is: add_chain
+  - select: 0  # "Instrument"
+  - confirm: short
+    assert:
+      screen_is: engine
+  - arrow: right  # Synth category -> Sampler category
+  - select: 0  # FluidSynth
+  - confirm: short
+    assert:
+      screen_is: midi_chan
+  - select: 0  # first available MIDI channel
+  - confirm: short
+  - cuia: CHAIN_OPTIONS
+    assert:
+      screen_is: chain_options
+  - select: 1  # "Add Audio-FX processor"
+  - confirm: short
+    assert:
+      screen_is: engine
+  - arrow: right  # Delay -> Distortion
+  - arrow: right  # Distortion -> Dynamics
+  - arrow: right  # Dynamics -> Filter & EQ
+  - arrow: right  # Filter & EQ -> Modulation
+  - arrow: right  # Modulation -> Panning
+  - arrow: right  # Panning -> Spatial
+  - arrow: right  # Spatial -> Pitch
+  - arrow: right  # Pitch -> Reverb
+  - arrow: right  # Reverb -> Simulator
+  - select: 8  # GxPlexi
+  - confirm: short
+save_snapshot: true
+assert_zss:
+  chain_has_engine: SX
+reload_and_check_audio: true

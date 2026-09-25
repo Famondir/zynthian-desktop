@@ -150,6 +150,12 @@ Plain data (YAML) over a Python DSL: a workflow is a list of steps, each either 
 
 The exact FluidSynth-selection sequence itself came from reading `zyngui/zynthian_gui_add_chain.py` (the type grid) and `zyngui/zynthian_gui_engine.py` (category-tabbed engine list, `zynthian_lv2.engine_categories["MIDI Synth"] = ("Synth", "Sampler", "Piano", ...)`) plus live trial against `/zynthian/config/engine_config.json`'s actual registry - not assumed. Notably, most of the "Synth" category's 28 entries are LV2/JALV-hosted synths that crash outright on this machine (`KeyError: Plugin not found`, e.g. amsynth, Calf Monosynth, Helm, MDA DX10) - a pre-existing, unrelated gap in this native install's LV2 plugin registry/`lilv` world cache, left uninvestigated as out of scope for this change. FluidSynth (a native, non-JALV engine, CAT `"Sampler"`) is unaffected and is that category's first entry.
 
+### Task 7.2's `CHAIN_OPTIONS` fix and the amp-sim engine sequence
+
+Adding a processor to an *existing* chain (rather than 7.1's build-a-new-chain flow) goes through the `CHAIN_OPTIONS` CUIA - found, while building `add_amp_effect.yaml`, to be **completely broken**: `cuia_chain_options` called `screens['chain_options'].setup(chain_id)`, but that screen class has no `setup()` method, only `set_chain(chain)` (which every other caller of that same screen already used correctly - `zynthian_gui_chain_manager.py`'s own node-click handler, for one). `AttributeError` on every single invocation, not something this change caused. Fixed on the fork to match the already-working call pattern.
+
+The amp-sim engine itself (GxPlexi, a real guitarix "Power Amp simulation" plugin - confirmed via its own `engine_config.json` entry, not assumed from its name) was found the same way as FluidSynth's position: `zynthian_lv2.engine_categories["Audio Effect"]` puts `"Simulator"` 9 tabs to the right of the engine screen's default `"Delay"` category, and it's the 9th enabled entry (index 8) there in this machine's current plugin registry - one more data point that most `Audio Effect`/`MIDI Synth` category lists on this install are dominated by LV2/JALV plugins, some working, some not, and that reading the actual registry files beats guessing at list positions.
+
 ### CUIA allow-list contents (task 1.3) - resolved
 
 Enumerated from `zynconf/zynthian_config.py`'s `NoteCuiaDefault` against what the three starting workflows (task 7) need:

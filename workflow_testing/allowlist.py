@@ -44,6 +44,13 @@ ALLOWED_CUIAS = frozenset({
     "ADD_CHAIN",
     "ARROW_RIGHT",
     "ARROW_LEFT",
+    # For adding a processor to an existing chain (task 7.2): CHAIN_OPTIONS
+    # opens the active chain's option list (Add MIDI-FX/Add Audio-FX/
+    # rename/move/remove chain/...) - nothing reachable from it exceeds
+    # what a workflow can already do to its own chains by construction
+    # (create/modify/remove), and none of it reaches SCREEN_ADMIN or
+    # anything system-level.
+    "CHAIN_OPTIONS",
 })
 
 # ZYNSWITCH indices a workflow step may press. Index range on TOUCH_ONLY
