@@ -1,0 +1,42 @@
+# Build a FluidSynth-based instrument chain from scratch (task 7.1) -
+# the live-built equivalent of test_zynthian_docker.sh's single fixture-
+# loaded scenario. Ported to two adapters/environments by construction:
+# this file runs unchanged against native_adapter and docker_adapter.
+#
+# Step sequence found live (see openspec/changes/add-workflow-smoke-testing
+# /design.md): ADD_CHAIN opens the type grid ("Instrument" is list index 0
+# under the FIRST CUIA_SCREEN_NAME jump SCREEN_MIXER's warm-up navigation -
+# see that step's own comment); the engine screen opens on the "Synth"
+# category (all LV2/JALV-hosted synths, several of which crash on this
+# machine - a pre-existing, unrelated LV2-plugin-registry gap, not
+# something this workflow should route around by chance); one ARROW_RIGHT
+# switches to the "Sampler" category, where FluidSynth ("FS") is the
+# first (index 0) entry.
+name: build-fluidsynth-chain
+steps:
+  # First-ever navigation after boot lazily starts whatever engine the
+  # loaded snapshot already configures and can land on a different
+  # screen than requested (see design.md's "SCREEN_CHAIN_MANAGER as the
+  # first step" finding) - absorb that here so every later step's
+  # screen_is assertion is meaningful.
+  - screen: SCREEN_MIXER
+    assert:
+      screen_is: mixer
+  - cuia: ADD_CHAIN
+    assert:
+      screen_is: add_chain
+  - select: 0  # "Instrument" in the Add Chain grid
+  - confirm: short
+    assert:
+      screen_is: engine
+  - arrow: right  # Synth category -> Sampler category
+  - select: 0  # FluidSynth, first entry in Sampler
+  - confirm: short
+    assert:
+      screen_is: midi_chan
+  - select: 0  # first available MIDI channel
+  - confirm: short
+save_snapshot: true
+assert_zss:
+  chain_has_engine: FS
+reload_and_check_audio: true

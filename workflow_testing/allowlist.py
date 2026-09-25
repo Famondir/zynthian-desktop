@@ -35,6 +35,15 @@ ALLOWED_CUIAS = frozenset({
     "SCREEN_SNAPSHOT",
     "SELECT",
     "SELECT_ACTION",
+    # For building a chain from scratch (task 7.1): ADD_CHAIN jumps to the
+    # "Add Chain..." type-selector grid; ARROW_RIGHT/ARROW_LEFT cycle the
+    # engine screen's category tabs (e.g. "Synth" -> "Sampler" to reach
+    # FluidSynth) - same "generic navigation action, safe because every
+    # screen reachable this way is already allow-listed" reasoning as
+    # SELECT/SELECT_ACTION above.
+    "ADD_CHAIN",
+    "ARROW_RIGHT",
+    "ARROW_LEFT",
 })
 
 # ZYNSWITCH indices a workflow step may press. Index range on TOUCH_ONLY

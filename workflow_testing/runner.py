@@ -61,19 +61,50 @@ _SHOW_SCREEN_RE = re.compile(r"SHOW SCREEN '([^']+)'")
 
 @dataclass
 class Step:
+    """One workflow step: exactly one action field, plus optional assertions.
+
+    - `screen: <CUIA_SCREEN_NAME>` - direct screen jump.
+    - `zynswitch: <index>` (+ `press: short|bold|long`) - a switch press.
+    - `cuia: <NAME>` - any other simple, parameterless allow-listed CUIA
+      (e.g. `ADD_CHAIN`, `ALL_NOTES_OFF`).
+    - `select: <index>` - move the current screen's list highlight (no
+      confirm) - `injection.select_list_item`.
+    - `confirm: short|bold|long` - confirm whatever's currently
+      highlighted - `injection.confirm_selection`.
+    - `arrow: right|left` - cycle the current screen's category/tab -
+      `injection.arrow`.
+    """
+
     screen: str | None = None
     zynswitch: int | None = None
     press: injection.PressDuration = "short"
+    cuia: str | None = None
+    select: int | None = None
+    confirm: injection.PressDuration | None = None
+    arrow: str | None = None
     assert_screen_is: str | None = None
 
     def __post_init__(self) -> None:
-        if (self.screen is None) == (self.zynswitch is None):
-            raise ValueError("Step needs exactly one of 'screen' or 'zynswitch'")
+        action_fields = (self.screen, self.zynswitch, self.cuia, self.select, self.confirm, self.arrow)
+        set_count = sum(1 for f in action_fields if f is not None)
+        if set_count != 1:
+            raise ValueError(
+                "Step needs exactly one of 'screen', 'zynswitch', 'cuia', 'select', 'confirm', 'arrow' "
+                f"- got {set_count}"
+            )
 
     def describe(self) -> str:
         if self.screen is not None:
             return f"screen:{self.screen}"
-        return f"zynswitch:{self.zynswitch}:{self.press}"
+        if self.zynswitch is not None:
+            return f"zynswitch:{self.zynswitch}:{self.press}"
+        if self.cuia is not None:
+            return f"cuia:{self.cuia}"
+        if self.select is not None:
+            return f"select:{self.select}"
+        if self.confirm is not None:
+            return f"confirm:{self.confirm}"
+        return f"arrow:{self.arrow}"
 
 
 @dataclass
@@ -115,6 +146,10 @@ def load_workflow(path: str | Path) -> Workflow:
                 screen=raw_step.get("screen"),
                 zynswitch=raw_step.get("zynswitch"),
                 press=raw_step.get("press", "short"),
+                cuia=raw_step.get("cuia"),
+                select=raw_step.get("select"),
+                confirm=raw_step.get("confirm"),
+                arrow=raw_step.get("arrow"),
                 assert_screen_is=assert_block.get("screen_is"),
             )
         )
@@ -165,8 +200,16 @@ def _run_step(step: Step, session, injector: injection.CuiaInjector, screen_trac
 
     if step.screen is not None:
         injector.screen_jump(step.screen)
-    else:
+    elif step.zynswitch is not None:
         injector.zynswitch_press(step.zynswitch, step.press)
+    elif step.cuia is not None:
+        injector.cuia(step.cuia)
+    elif step.select is not None:
+        injector.select_list_item(step.select)
+    elif step.confirm is not None:
+        injector.confirm_selection(step.confirm)
+    else:
+        injector.arrow(step.arrow)
 
     new_lines = log_diff.wait_for_stable_tail(mark)
 
@@ -307,6 +350,23 @@ def _wait_for_vmpk_autoconnect(session, timeout_s: float = 10.0, poll_interval_s
     )
 
 
+def _copy_to_default_snapshot(zss_path: str, snapshots_dir: str) -> None:
+    """Copy `zss_path` to `<snapshots_dir>/default.zss` - the path every
+    session loads at boot when no `last_state.zss` restore is configured
+    (`zynthian_state_manager.default_snapshot_fpath`, always directly in
+    the top-level snapshots dir). Must run while the source session's
+    data still exists on disk - see reload_and_check_audio()'s docstring.
+
+    `snapshots_dir` must be the *top-level* snapshots directory, not
+    necessarily `zss_path`'s own parent - found live: `save_snapshot()`
+    can land inside a numbered bank subfolder (e.g.
+    `snapshots/000/001-New Snapshot.zss`), and `default.zss` written
+    there instead would never be found at boot.
+    """
+    default_zss_path = os.path.join(snapshots_dir, "default.zss")
+    shutil.copyfile(zss_path, default_zss_path)
+
+
 def reload_and_check_audio(zss_path: str, adapter, *, my_data_dir: str | None = None) -> None:
     """Start a fresh session loading `zss_path` as its default snapshot,
     inject a musical note, confirm non-silent audio via jack_rec+sox.
@@ -319,10 +379,15 @@ def reload_and_check_audio(zss_path: str, adapter, *, my_data_dir: str | None = 
     single fixed path shared by every session already.
 
     Raises AudioCheckError if the captured audio is silent.
-    """
-    default_zss_path = os.path.join(os.path.dirname(zss_path), "default.zss")
-    shutil.copyfile(zss_path, default_zss_path)
 
+    Callers that also own the session `zss_path` came from: copy it to
+    `default.zss` (see `_copy_to_default_snapshot`) *before* tearing that
+    session down, not after - found live: `my_data_dir` may be the
+    session's own scratch tree, deleted by its `teardown()`, so a copy
+    attempted afterward finds nothing left to copy. `run_workflow()`
+    already does this in the right order; call `_copy_to_default_snapshot`
+    yourself first if calling this function directly.
+    """
     adapter.check_no_contention()
     session = adapter.launch(my_data_dir=my_data_dir)
     vmpk_proc = None
@@ -392,6 +457,29 @@ def run_workflow(workflow: Workflow, session, injector: injection.CuiaInjector, 
                     zss_assert.assert_chain_has_engine(snapshot, workflow.assert_zss["chain_has_engine"])
             if workflow.reload_and_check_audio:
                 my_data_dir = os.path.dirname(session.snapshots_dir)
+                # Copy while the session's data still exists on disk -
+                # found live: for a fresh docker_adapter session, that
+                # data *is* the session's own scratch my_data_dir, deleted
+                # by its own teardown() below. Copying after teardown
+                # instead found nothing left to copy.
+                _copy_to_default_snapshot(zss_path, session.snapshots_dir)
+                # For a docker_adapter session that owns its own scratch
+                # my_data_dir (the normal case - no override was passed to
+                # the launch() that created it), teardown() would delete
+                # that whole directory next, including the default.zss
+                # just written above - found live: reload_and_check_audio
+                # then hands a nonexistent path to `docker run -v`, which
+                # dockerd (running as real root) silently auto-creates as
+                # an empty, root-owned directory instead of erroring,
+                # producing an inexplicable "Permission denied" boot
+                # crash. Disarm that deletion - this directory is about to
+                # be handed to the reload session, which does not delete
+                # an externally-provided my_data_dir either (same
+                # reasoning, transitively) - nothing ever cleans this one
+                # up automatically, an accepted small leak in exchange for
+                # reload_and_check_audio actually working.
+                if hasattr(session, "_owns_my_data_dir"):
+                    session._owns_my_data_dir = False
                 # reload_and_check_audio needs a *fresh* boot, and the
                 # adapter's own contention check would otherwise refuse
                 # to start it while this session is still up (same

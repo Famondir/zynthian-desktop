@@ -115,3 +115,18 @@ class CuiaInjector:
         press_code = {"short": "S", "bold": "B", "long": "L"}[press]
         check_cuia("SELECT_ACTION")
         self._send("SELECT_ACTION", press_code)
+
+    def add_chain(self) -> None:
+        """Jump to the "Add Chain..." type-selector grid. Maps to cuia_add_chain."""
+        check_cuia("ADD_CHAIN")
+        self._send("ADD_CHAIN")
+
+    def arrow(self, direction: Literal["right", "left"]) -> None:
+        """Cycle the current screen's category/tab (e.g. the engine
+        screen's Synth/Sampler/Piano/... categories) - the OSC equivalent
+        of the front-panel arrow buttons. Maps to cuia_arrow_right/left ->
+        screen.arrow_right()/arrow_left().
+        """
+        cuia = "ARROW_RIGHT" if direction == "right" else "ARROW_LEFT"
+        check_cuia(cuia)
+        self._send(cuia)

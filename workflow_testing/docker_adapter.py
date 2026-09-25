@@ -182,6 +182,17 @@ def launch(
     owns_my_data_dir = my_data_dir is None
     if my_data_dir is None:
         my_data_dir = tempfile.mkdtemp(prefix="zynthian-workflow-test-my-data.")
+    elif not os.path.isdir(my_data_dir):
+        # Found live: a nonexistent my_data_dir here doesn't fail loudly -
+        # dockerd (real root) silently auto-creates the bind-mount source
+        # as an empty, root-owned directory instead, which then makes
+        # entrypoint.sh's own mkdir -p scaffolding fail with a confusing
+        # "Permission denied" deep in the boot log, nowhere near this
+        # actual cause. Fail here instead, with the real explanation.
+        raise FileNotFoundError(
+            f"my_data_dir '{my_data_dir}' does not exist - refusing to let Docker "
+            "silently auto-create it as an empty, root-owned directory"
+        )
 
     # entrypoint.sh only creates /zynthian/config/zynthian_envars.sh (which
     # zynconf/zynthian_config.py reads directly, unconditionally, at
