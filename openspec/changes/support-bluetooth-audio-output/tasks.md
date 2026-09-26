@@ -19,7 +19,7 @@
 - [x] 3.1 Live test: confirmed audible on AirPods Pro, end-to-end through the full app (VMPK → active FluidSynth chain → chain's Audio Out routed to the `zynaout_Loopback` output pair → this script's bridge). Found and fixed along the way: `arecord -D hw:Loopback,1,0` failed outright (`Sample format non available`) because `zynautoconnect`'s own `alsa_out -d hw:Loopback` already holds the card's cross-connected playback side open in `FLOAT_LE`, which a plain `hw:` capture can't renegotiate - switched to `plughw:Loopback,1,0` so ALSA's plug layer converts.
 - [x] 3.2 Live test: confirmed - with PipeWire running (no Zynthian session active), the script fails immediately with the clear precondition error rather than silently producing no audio.
 - [x] 3.3 Live test: confirmed - Ctrl-C leaves no orphaned `arecord`/`aplay` processes, no leftover FIFO, and `bluealsa`'s own journal shows a clean transport teardown (`PCM drop` -> `Closing PCM` -> `Stopping transport: No PCM clients` -> `Closing A2DP transport`).
-- [ ] 3.4 Confirm the existing native install (`run_zynthian.sh`, `run_zynthian_vnc.sh`) and other `Loopback`-using workflows (`setup_virtual_devices.sh`) aren't disturbed by this script running alongside them.
+- [x] 3.4 Confirmed - `run_zynthian_vnc.sh` ran undisturbed across all of section 3's tests (started/stopped multiple times with the bridge active), and `setup_virtual_devices.sh` ran cleanly (Loopback card detected, no conflict) while the bridge's `arecord`/`aplay` were actively running.
 
 ## 4. Follow-up (tracked, not part of this change)
 
