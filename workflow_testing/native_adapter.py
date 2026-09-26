@@ -45,6 +45,7 @@ here directly against the dummy driver, not by run_zynthian.sh.
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -233,6 +234,7 @@ def launch(
     ui_log_path: str | None = None,
     xvfb_size: str = "1600x960x24",
     my_data_dir: str | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> NativeSession:
     """Start an isolated native session: Xvfb, dummy JACK, a2jmidid, zynthian_main.py.
 
@@ -241,6 +243,12 @@ def launch(
     uniformly) but otherwise unused - the native install's zynthian-my-data
     is always the single fixed NATIVE_MY_DATA_DIR path, there's no
     per-session scratch tree to redirect.
+
+    `extra_env`: additional/overriding env vars for zynthian_main.py itself
+    (e.g. DISPLAY_WIDTH/DISPLAY_HEIGHT/ZYNTHIAN_GUI_KEYPAD_STYLE/
+    ZYNTHIAN_TOUCH_SHOWN, to reproduce a specific touchkeypad layout - see
+    check_topbar_status_fit.py). Applied after the base env, so it can
+    override anything including DISPLAY (not just add to it).
 
     Call check_no_contention() first - this doesn't call it itself, so
     callers control exactly when that check runs relative to their own
@@ -287,8 +295,22 @@ def launch(
     ui_env = _real_lib_env(
         {"JACK_DEFAULT_SERVER": jack_server_name, "DISPLAY": display, "PYTHONUNBUFFERED": "1"}
     )
+    if extra_env:
+        ui_env.update(extra_env)
+    # extra_env overrides are re-exported *after* sourcing ENVARS_CUSTOM_SH,
+    # not just passed via the outer process env above - that script itself
+    # unconditionally `export`s DISPLAY_WIDTH/DISPLAY_HEIGHT/
+    # ZYNTHIAN_TOUCH_SHOWN (this machine's real hardware tuning), which would
+    # otherwise clobber them before zynthian_main.py ever sees them. Found
+    # live while building check_topbar_status_fit.py: passing DISPLAY_WIDTH
+    # via env= alone silently had no effect - the sourced script's own
+    # export always wins inside the same shell.
+    extra_env_exports = "".join(
+        f"export {shlex.quote(k)}={shlex.quote(v)} && " for k, v in (extra_env or {}).items()
+    )
     launch_script = (
         f"source {ENVARS_CUSTOM_SH} && "
+        f"{extra_env_exports}"
         f"source {VENV_ACTIVATE_SH} && "
         f"cd {ZYNTHIAN_UI_DIR} && "
         f"exec python3 zynthian_main.py"
