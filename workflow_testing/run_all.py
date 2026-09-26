@@ -12,6 +12,45 @@ socket, no `docker` access without privilege. Run manually.
 
 Usage:
     python3 -m workflow_testing.run_all [--env native|docker|both] [--workflow NAME]
+
+Requires a native zynthian-ui checkout at /zynthian/zynthian-ui (or a
+built zynthian-desktop:latest image for --env docker) plus the same
+VMPK/snd-aloop setup as setup_virtual_devices.sh - see openspec/specs
+/virtual-test-devices. Only one real or test Zynthian session (native or
+Docker) can be up at a time; check_no_contention() refuses to start
+otherwise rather than fight over /dev/snd or the OSC port.
+
+Adding a new workflow: drop a `<name>.yaml` file into workflows/ - it is
+picked up automatically by this module's `WORKFLOWS_DIR.glob("*.yaml")`,
+no registration needed. A workflow file is:
+
+    name: my-workflow
+    steps:
+      - screen: SCREEN_MIXER          # direct screen jump
+        assert: {screen_is: mixer}    # optional per-step assertion
+      - zynswitch: 0
+        press: short                  # short|bold|long
+      - cuia: ADD_CHAIN                # any other allow-listed CUIA
+      - select: 0                      # move list highlight, no confirm
+      - confirm: short                 # confirm highlighted item
+      - arrow: right                   # cycle category/tab
+      - play_note: true                # real MIDI note via VMPK
+    save_snapshot: true                # trigger a save at the end
+    assert_zss:
+      chain_has_engine: FS             # structural check on the saved .zss
+      chain_count: 1
+    reload_and_check_audio: true       # reload the saved .zss fresh,
+                                        # confirm non-silent audio
+    assert_new_capture_file: mid       # assert a new file with this
+                                        # extension appeared under capture/
+
+Every step gets an unconditional `no_new_errors` log-diff check - see
+runner.py's module docstring and `Step`/`Workflow` dataclasses for the
+full field-by-field rationale, and workflows/*.yaml for worked examples.
+A step's CUIA (or ZYNSWITCH index) must already be on allowlist.py's
+allow-list, or the run fails before injecting anything - add a new entry
+there deliberately when a new workflow needs one (see design.md's "CUIA
+safety allow-list" decision for why this fails closed, not open).
 """
 
 from __future__ import annotations

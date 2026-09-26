@@ -17,8 +17,16 @@ steps:
   # First-ever navigation after boot lazily starts whatever engine the
   # loaded snapshot already configures and can land on a different
   # screen than requested (see design.md's "SCREEN_CHAIN_MANAGER as the
-  # first step" finding) - absorb that here so every later step's
-  # screen_is assertion is meaningful.
+  # first step" finding). A SINGLE warm-up step isn't reliable: if boot's
+  # own default screen already happens to be the warm-up's target (found
+  # live - depends on exactly what session state was already loaded),
+  # show_screen() never actually fires (its own `if self.current_screen
+  # != screen:` guard - see design.md), so the lazy-load side effect
+  # never gets absorbed either, and the very next real step hits it
+  # instead. Two DIFFERENT screens can't both already be current, so at
+  # least one of these two is always a genuine transition regardless of
+  # boot's own default.
+  - screen: SCREEN_CHAIN_MANAGER
   - screen: SCREEN_MIXER
     assert:
       screen_is: mixer

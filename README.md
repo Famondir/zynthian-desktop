@@ -66,8 +66,7 @@ ZYNTHIAN_MY_DATA_DIR=/path/to/your/data ./run_zynthian_docker.sh
 ## Dev/testing tooling
 
 - **`setup_virtual_devices.sh`** — sets up VMPK (virtual MIDI keyboard) + `snd-aloop` (virtual audio loopback) so you can develop/test without the physical Korg Fisa Suprema. See [openspec/specs/virtual-test-devices](openspec/specs/virtual-test-devices/spec.md).
-- **`test_zynthian_docker.sh`** — automated headless smoke test for the Docker image (boots it, injects a MIDI note via VMPK, confirms audio came out) — no human needed. Being superseded by `workflow_testing/` (below); see [openspec/changes/add-workflow-smoke-testing](openspec/changes/add-workflow-smoke-testing/).
-- **`workflow_testing/`** — in-progress workflow-script test engine driving native *and* Docker sessions through the same scripted steps (CUIA actions injected over Zynthian's own OSC control port, not screen-clicking), with log-diff, snapshot-structure, and audio round-trip assertions. Not yet wired into a runnable CLI — see that change's `tasks.md` for status.
+- **`workflow_testing/`** — automated smoke-test engine driving native *and* Docker sessions through the same scripted workflows (CUIA actions injected over Zynthian's own OSC control port, not screen-clicking), with log-diff, snapshot-structure, and audio round-trip assertions. Replaces the old Docker-only `test_zynthian_docker.sh`; run via `python3 -m workflow_testing.run_all` (see its module header for usage and how to add a workflow, and [openspec/changes/add-workflow-smoke-testing](openspec/changes/add-workflow-smoke-testing/) for the design rationale).
 
 ## Repo layout
 
@@ -80,8 +79,7 @@ ZYNTHIAN_MY_DATA_DIR=/path/to/your/data ./run_zynthian_docker.sh
 | `run_zynthian_webconf.sh` | Launch webconf natively |
 | `novnc_viewer.sh` | Shared Xvfb+x11vnc+noVNC helper used by both `run_zynthian_*.sh` scripts |
 | `setup_virtual_devices.sh` | One-time setup for VMPK/`snd-aloop` dev testing |
-| `test_zynthian_docker.sh` | Automated Docker smoke test (being superseded) |
-| `workflow_testing/` | New native+Docker workflow-test engine (in progress) |
+| `workflow_testing/` | Automated native+Docker workflow-test engine (`python3 -m workflow_testing.run_all`) |
 | `config/zynthian_envars_custom.sh.example` | Reference copy of this machine's native runtime config |
 | `openspec/` | Design/planning docs — proposals, specs, and their history |
 

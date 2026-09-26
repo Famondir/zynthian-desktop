@@ -27,10 +27,12 @@
 # this workflow pass there while silently failing in Docker.
 name: record-midi
 steps:
-  # First-ever navigation after boot can lazily trigger engine loading
-  # and land on a different screen than requested - see
-  # build_fluidsynth_chain.yaml's own comment on this. Absorbed here so
-  # ADD_CHAIN isn't the very first thing this session ever does.
+  # Two-screen warm-up, not one - see build_fluidsynth_chain.yaml's own
+  # comment on this: a single warm-up step isn't reliable if boot's own
+  # default screen already happens to match it (found live), since
+  # show_screen() then never actually fires and the lazy engine-load
+  # side effect it triggers goes unabsorbed.
+  - screen: SCREEN_CHAIN_MANAGER
   - screen: SCREEN_MIXER
     assert:
       screen_is: mixer
