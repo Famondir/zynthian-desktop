@@ -188,6 +188,10 @@ if ! bluealsa-aplay -L 2>/dev/null | grep -qi "DEV=$MAC"; then
 fi
 
 # --- 2.6: start the bridge ---
+# plughw (not hw) for the capture side: zynautoconnect's own alsa_out
+# already holds the Loopback card's playback side open in FLOAT_LE (its
+# cross-connected capture side must match), which a plain hw: arecord
+# can't renegotiate away from - plughw lets ALSA's plug layer convert.
 FIFO="$(mktemp -u /tmp/zynthian_bluetooth_audio.fifo.XXXXXX)"
 mkfifo "$FIFO"
 
@@ -201,7 +205,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-arecord -D "hw:Loopback,1,0" -F 20000 -B 40000 > "$FIFO" 2>>"$LOG" &
+arecord -D "plughw:Loopback,1,0" -F 20000 -B 40000 > "$FIFO" 2>>"$LOG" &
 ARECORD_PID=$!
 aplay -D "bluealsa:DEV=$MAC,PROFILE=a2dp" -F 20000 -B 40000 < "$FIFO" 2>>"$LOG" &
 APLAY_PID=$!
