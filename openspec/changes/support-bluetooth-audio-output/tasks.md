@@ -1,18 +1,18 @@
 ## 1. Resolve open design questions
 
-- [ ] 1.1 Decide the device-selection UX for the script (MAC address argument, name-substring match against `bluetoothctl devices`, or interactive picker) - not decided in design.md.
-- [ ] 1.2 Decide whether starting requires an explicit `--i-understand-the-latency`-style confirmation flag, or a printed warning is enough (design.md's Risks flags this as worth considering, not decided).
-- [ ] 1.3 Decide exactly how the script detects "PipeWire is still running" to fail fast per the precondition in design.md (e.g. `systemctl --user is-active pipewire.service`).
+- [x] 1.1 Decided: MAC address argument (exact match) or a case-insensitive name-substring match against `bluetoothctl devices Connected`; if omitted and exactly one device is connected, that one is auto-selected. No interactive picker (kept it scriptable/non-interactive-friendly for the common one-device case).
+- [x] 1.2 Decided: printed warning (prominent, runtime output) plus an interactive `Type 'yes' to continue` confirmation by default, skippable via a `--yes` flag for repeat/scripted runs - real friction without inventing a separate documented `--i-understand-the-latency` flag name.
+- [x] 1.3 Decided: `systemctl --user is-active --quiet pipewire.service` - matches the exact unit `run_zynthian.sh`'s own "Stopping PipeWire for this session" step stops, confirmed by reading that script directly.
 
 ## 2. Implement the script
 
-- [ ] 2.1 Create the new script (name TBD, sibling to `run_zynthian_webconf.sh`) with a header comment documenting: its independence from `run_zynthian.sh`, the PipeWire-stopped precondition, and the latency limitation - matching this repo's existing header-comment convention (`run_zynthian_docker.sh`, `setup_virtual_devices.sh`).
-- [ ] 2.2 Check for `bluez-alsa-utils`/`bluealsa.service` and fail with clear install instructions if missing.
-- [ ] 2.3 Ensure `snd-aloop` is loaded, reusing `setup_virtual_devices.sh`'s existing modprobe-if-missing logic rather than duplicating it.
-- [ ] 2.4 Implement the PipeWire-running precondition check from 1.3.
-- [ ] 2.5 Implement device selection per 1.1, and if needed, the disconnect/reconnect cycle to get `bluealsa` (not PipeWire) to hold the A2DP transport (only needed if the device was already connected before this script ran).
-- [ ] 2.6 Start the `arecord -D hw:Loopback,1,0 -F 20000 -B 40000 | aplay -D bluealsa:DEV=<MAC>,PROFILE=a2dp -F 20000 -B 40000` bridge as a background process, logged to `/tmp/zynthian_bluetooth_audio.log` (or similar), with a cleanup trap on exit.
-- [ ] 2.7 Print the latency caveat prominently (2.1's header comment isn't enough on its own - needs to appear as runtime output too, per the spec's second requirement).
+- [x] 2.1 Created `run_zynthian_bluetooth_audio.sh` at the repo root with a header comment covering independence from `run_zynthian.sh`, the PipeWire-stopped precondition, the latency warning, and what it does/doesn't do - matching `run_zynthian_docker.sh`/`setup_virtual_devices.sh`'s convention.
+- [x] 2.2 Checks `command -v bluealsa-aplay` and `systemctl is-active --quiet bluealsa.service` (system-scope, not `--user` - confirmed via `systemctl list-unit-files` that `bluealsa.service` is a system unit), fails with `sudo apt install bluez-alsa-utils`/`sudo systemctl start bluealsa.service` instructions.
+- [x] 2.3 Reused `setup_virtual_devices.sh`'s exact `lsmod`/`modprobe`/`aplay -l` Loopback-card-detection logic verbatim.
+- [x] 2.4 Implemented per 1.3.
+- [x] 2.5 Implemented per 1.1; if `bluealsa-aplay -L` doesn't yet list a PCM for the selected MAC, does a `bluetoothctl disconnect`/`connect` cycle and polls (up to 10s) for the PCM to appear before giving up with a clear error.
+- [x] 2.6 Implemented, but not as a literal shell pipe - used a named FIFO with `arecord`/`aplay` each backgrounded separately so their PIDs can be tracked and killed individually on cleanup (a plain `cmd1 | cmd2 &` only exposes the last command's PID via `$!`, which isn't enough to guarantee no orphaned process on shutdown - relevant for task 3.3). Logs both to `/tmp/zynthian_bluetooth_audio.log`, `trap cleanup EXIT INT TERM`.
+- [x] 2.7 Printed as a boxed runtime warning before the confirmation prompt, not just in the header comment.
 
 ## 3. Validate
 
