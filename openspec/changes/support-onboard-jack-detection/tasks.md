@@ -12,7 +12,7 @@
 
 ## 3. Validate
 
-- [ ] 3.1 Live test (primary fix): with nothing in the onboard jack, create a new audio-capable chain (e.g. an audio effect/vocoder-style chain), confirm its default input is empty, not the onboard mic - this is the concrete noise problem this change exists to fix.
+- [x] 3.1 Live test: confirmed - with nothing in the onboard jack, a new Audio Effect chain's default input is empty (Loopback listed but unchecked, onboard mic not even listed). Found and fixed along the way: a startup race where a chain created before `auto_connect_thread`'s first ~2s poll saw the hardcoded `onboard_mic_present = True` default and got `[1, 2]` against the post-filter (Loopback-shifted-into-position) port list - fixed by checking synchronously at module import instead (matching how `jack_audio_device` itself is already computed). Also found and fixed an unrelated stale-jackd bug blocking the real `hw:sofhdadsp`-bound jackd from ever starting (see commit history).
 - [ ] 3.2 Live test: repeat 3.1 with a device plugged into the onboard jack, confirm the default input is the onboard mic as before (unchanged behavior when present).
 - [ ] 3.3 Live test: start the app with nothing in the onboard jack, confirm the mic-in port's state (hidden/marked per 1.1's decision) in both the Audio Input screen and `device_cables`.
 - [ ] 3.4 Live test: plug a device into the onboard jack while the app is running, confirm the port becomes available within ~2s, no restart needed.
