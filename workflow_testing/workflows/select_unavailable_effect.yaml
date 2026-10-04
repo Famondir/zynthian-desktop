@@ -4,9 +4,11 @@
 # found") out of add_processor, left the UI stuck busy and an engine-less
 # slot in the chain.
 #
-# DuskVerb is listed in upstream's catalog but not installable from apt,
-# so it stays greyed out: Reverb category index 15 (13 installed reverbs
-# after "None", then the greyed ones in title order: Aether, DuskVerb).
+# Reverb category index 15 is a greyed-out (upstream-only, not
+# installable from apt) reverb in both environments: natively DuskVerb
+# (13 enabled installed reverbs, then Aether, DuskVerb, ...), in Docker
+# MVerb (11 enabled installed reverbs - ZamVerb/GxZita are only enabled
+# on the native host).
 # Nothing must be added (only a "Not installed" info toast), the
 # per-step no_new_errors log check catches any traceback, and the
 # snapshot save afterwards only works if the UI isn't stuck busy.
@@ -47,7 +49,7 @@ steps:
   - arrow: right  # Panning -> Spatial
   - arrow: right  # Spatial -> Pitch
   - arrow: right  # Pitch -> Reverb
-  - select: 15  # DuskVerb (greyed out, not installed)
+  - select: 15  # greyed out, not installed (DuskVerb native / MVerb Docker)
   - confirm: short  # only shows a 2s "Not installed" info toast
 save_snapshot: true
 assert_zss:
