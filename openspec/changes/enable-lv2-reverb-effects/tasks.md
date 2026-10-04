@@ -1,7 +1,7 @@
 ## 1. Diagnose (gates the rest - see design D1)
 
 - [x] 1.1 Back up `/zynthian/config/engine_config.json` and the current last-state snapshot from `zynthian-my-data/snapshots/`
-- [ ] 1.2 Recover from the user's hung chains: start Zynthian once with the last-state snapshot moved aside, confirm the UI comes up clean (design D6)
+- [x] 1.2 Recover from the user's hung chains: start Zynthian once with the last-state snapshot moved aside, confirm the UI comes up clean (design D6)
 - [ ] 1.3 Reproduce: add `GxReverb-Stereo` (installed + enabled) after a synth chain, play a note - record whether it loads and is audible. If it fails, capture the traceback and revisit design.md before continuing
 - [x] 1.4 Reproduce: add a not-installed reverb (e.g. Dragonfly Hall Reverb) - capture the exact `KeyError: Plugin not found` traceback and what leaves the chain hung/unremovable
 
