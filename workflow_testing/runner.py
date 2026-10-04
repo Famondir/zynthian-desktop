@@ -79,6 +79,13 @@ class Step:
       only step kind that needs a real MIDI path rather than the OSC
       CUIA one. `run_workflow()` starts/stops VMPK automatically for the
       whole run when any step uses this.
+    - `type: <text>` - type text as physical key presses (`xdotool type`)
+      into the Zynthian window; `key: <keysym>` - press one named key
+      (e.g. `Return`, `BackSpace`, `Escape`). The only non-CUIA steps:
+      physical keyboard input is itself what they test
+      (support-physical-keyboard-text-entry). Refused unless the tracked
+      current screen is `keyboard`, so a misplaced step can never type
+      into a screen where keys are bound to CUIAs.
     """
 
     screen: str | None = None
@@ -89,6 +96,8 @@ class Step:
     confirm: injection.PressDuration | None = None
     arrow: str | None = None
     play_note: bool = False
+    type: str | None = None
+    key: str | None = None
     assert_screen_is: str | None = None
 
     def __post_init__(self) -> None:
@@ -100,12 +109,14 @@ class Step:
             self.confirm,
             self.arrow,
             self.play_note or None,
+            self.type,
+            self.key,
         )
         set_count = sum(1 for f in action_fields if f is not None)
         if set_count != 1:
             raise ValueError(
                 "Step needs exactly one of 'screen', 'zynswitch', 'cuia', 'select', 'confirm', 'arrow', "
-                f"'play_note' - got {set_count}"
+                f"'play_note', 'type', 'key' - got {set_count}"
             )
 
     def describe(self) -> str:
@@ -121,6 +132,10 @@ class Step:
             return f"confirm:{self.confirm}"
         if self.arrow is not None:
             return f"arrow:{self.arrow}"
+        if self.type is not None:
+            return f"type:{self.type}"
+        if self.key is not None:
+            return f"key:{self.key}"
         return "play_note"
 
 
@@ -175,6 +190,8 @@ def load_workflow(path: str | Path) -> Workflow:
                 confirm=raw_step.get("confirm"),
                 arrow=raw_step.get("arrow"),
                 play_note=raw_step.get("play_note", False),
+                type=raw_step.get("type"),
+                key=raw_step.get("key"),
                 assert_screen_is=assert_block.get("screen_is"),
             )
         )
@@ -236,6 +253,14 @@ def _run_step(step: Step, session, injector: injection.CuiaInjector, screen_trac
         injector.confirm_selection(step.confirm)
     elif step.arrow is not None:
         injector.arrow(step.arrow)
+    elif step.type is not None or step.key is not None:
+        if screen_tracker.current != "keyboard":
+            return StepResult(
+                step=step,
+                passed=False,
+                error=f"Refusing {step.describe()}: current screen is '{screen_tracker.current}', not 'keyboard'",
+            )
+        _send_keys(session.display, text=step.type, key=step.key)
     else:
         musical_note.play_note(session.display)
 
@@ -262,6 +287,28 @@ def _run_step(step: Step, session, injector: injection.CuiaInjector, screen_trac
         )
 
     return StepResult(step=step, passed=True)
+
+
+def _send_keys(display: str, text: str | None = None, key: str | None = None) -> None:
+    """Type `text` or press `key` into the Zynthian window on `display`.
+
+    The window is focused explicitly first: on a bare Xvfb there is no
+    window manager, and VMPK (play_note) may hold the focus otherwise.
+    zynthian_gui_config creates its root with a plain `tkinter.Tk()`, so
+    the window's WM_CLASS is just "tk", "Tk" (found live; VMPK's differs).
+    The full environment is kept: with only DISPLAY there's no UTF-8
+    locale and `xdotool type` fails on non-ASCII ("Invalid multi-byte
+    sequence encountered", found live typing an umlaut).
+    """
+    env = {**os.environ, "DISPLAY": display}
+    window = subprocess.run(
+        ["xdotool", "search", "--onlyvisible", "--class", "^Tk$"], env=env, capture_output=True, text=True, check=True
+    ).stdout.split()[0]
+    subprocess.run(["xdotool", "windowfocus", "--sync", window], env=env, check=True)
+    if text is not None:
+        subprocess.run(["xdotool", "type", "--delay", "40", text], env=env, check=True)
+    else:
+        subprocess.run(["xdotool", "key", key], env=env, check=True)
 
 
 _SAVING_SNAPSHOT_RE = re.compile(r"Saving snapshot (.+) \.\.\.")
@@ -512,6 +559,8 @@ def run_workflow(workflow: Workflow, session, injector: injection.CuiaInjector, 
                     zss_assert.assert_chain_count(snapshot, workflow.assert_zss["chain_count"])
                 if "chain_has_engine" in workflow.assert_zss:
                     zss_assert.assert_chain_has_engine(snapshot, workflow.assert_zss["chain_has_engine"])
+                if "chain_has_title" in workflow.assert_zss:
+                    zss_assert.assert_chain_has_title(snapshot, workflow.assert_zss["chain_has_title"])
             if workflow.reload_and_check_audio:
                 my_data_dir = os.path.dirname(session.snapshots_dir)
                 # Copy while the session's data still exists on disk -

@@ -66,3 +66,13 @@ def assert_chain_count(snapshot: dict, expected_count: int) -> None:
     actual = len(chains)
     if actual != expected_count:
         raise ZssAssertionError(f"Expected {expected_count} chain(s), snapshot has {actual} (ids: {sorted(chains)})")
+
+
+def assert_chain_has_title(snapshot: dict, title: str) -> None:
+    """Assert some chain's title is exactly `title` (chains[<id>]['title'])."""
+    chains = snapshot.get("chains")
+    if chains is None:
+        raise ZssAssertionError("Snapshot has no 'chains' key - unexpected schema (see module docstring)")
+    titles = [chain.get("title") for chain in chains.values()]
+    if title not in titles:
+        raise ZssAssertionError(f"No chain titled '{title}' (titles present: {titles})")

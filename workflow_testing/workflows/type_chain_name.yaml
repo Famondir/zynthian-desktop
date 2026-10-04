@@ -1,0 +1,52 @@
+# Rename a chain by typing on a physical keyboard
+# (support-physical-keyboard-text-entry).
+#
+# Entry via "Rename chain" rather than the snapshot screen: the snapshot
+# list depends on the session's existing banks/snapshots (and only offers
+# "Save as new snapshot" for a non-empty state), so a fixed index there
+# can land on "Default" and load it. The chain-options list only depends
+# on the chain this workflow builds itself - for a fresh FluidSynth chain:
+# 0 "> PROCESSORS", 1 Add MIDI-FX, 2 Add Audio-FX, 3 Clean MIDI Learn,
+# 4 "> MANAGE", 5 Move chain, 6 Rename chain (zynthian_gui_chain_options
+# .fill_list()). A new chain's title starts empty.
+#
+# The typed text deliberately contains i, k, o, l - keys the QWERTY
+# keybinding profile maps to ZYNSWITCH presses (they would confirm or
+# navigate away before this change) - plus a Shift-resolved capital and
+# an umlaut (layout-resolved by X, not on the on-screen base layer).
+# The trailing "x" is removed with BackSpace, then Return confirms.
+name: type-chain-name
+steps:
+  - screen: SCREEN_CHAIN_MANAGER
+  - screen: SCREEN_MIXER
+    assert:
+      screen_is: mixer
+  - cuia: ADD_CHAIN
+    assert:
+      screen_is: add_chain
+  - select: 0  # "Instrument"
+  - confirm: short
+    assert:
+      screen_is: engine
+  - arrow: right  # Synth category -> Sampler category
+  - select: 0  # FluidSynth
+  - confirm: short
+    assert:
+      screen_is: midi_chan
+  - select: 0  # first available MIDI channel
+  - confirm: short
+  - cuia: CHAIN_OPTIONS
+    assert:
+      screen_is: chain_options
+  - select: 6  # "Rename chain"
+  - confirm: short
+    assert:
+      screen_is: keyboard
+  - type: "Ikolä ikolx"
+    assert:
+      screen_is: keyboard
+  - key: BackSpace
+  - key: Return
+save_snapshot: true
+assert_zss:
+  chain_has_title: "Ikolä ikol"
