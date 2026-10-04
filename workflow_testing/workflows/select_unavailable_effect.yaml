@@ -1,0 +1,54 @@
+# Confirming a greyed-out (not installed) engine must not add anything
+# (enable-lv2-reverb-effects, "Greyed entry cannot be added"). Before
+# that change, picking a stale catalog entry raised KeyError("Plugin not
+# found") out of add_processor, left the UI stuck busy and an engine-less
+# slot in the chain.
+#
+# DuskVerb is listed in upstream's catalog but not installable from apt,
+# so it stays greyed out: Reverb category index 15 (13 installed reverbs
+# after "None", then the greyed ones in title order: Aether, DuskVerb).
+# Nothing must be added (only a "Not installed" info toast), the
+# per-step no_new_errors log check catches any traceback, and the
+# snapshot save afterwards only works if the UI isn't stuck busy.
+name: select-unavailable-effect
+steps:
+  - screen: SCREEN_CHAIN_MANAGER
+  - screen: SCREEN_MIXER
+    assert:
+      screen_is: mixer
+  - cuia: ADD_CHAIN
+    assert:
+      screen_is: add_chain
+  - select: 0  # "Instrument"
+  - confirm: short
+    assert:
+      screen_is: engine
+  - arrow: right  # Synth category -> Sampler category
+  - select: 0  # FluidSynth
+  - confirm: short
+    assert:
+      screen_is: midi_chan
+  - select: 0  # first available MIDI channel
+  - confirm: short
+  - cuia: CHAIN_OPTIONS
+    assert:
+      screen_is: chain_options
+  - select: 2  # "Add Audio-FX processor" (0 is the "> PROCESSORS" header, 1 "Add MIDI-FX")
+  - confirm: short
+    assert:
+      screen_is: engine
+  # The Audio-FX engine screen opens on "Distortion", not "Delay": the
+  # engine screen keeps its cat_index from the previous visit (Instrument
+  # -> Sampler = index 1) - found in enable-lv2-reverb-effects.
+  - arrow: right  # Distortion -> Dynamics
+  - arrow: right  # Dynamics -> Filter & EQ
+  - arrow: right  # Filter & EQ -> Modulation
+  - arrow: right  # Modulation -> Panning
+  - arrow: right  # Panning -> Spatial
+  - arrow: right  # Spatial -> Pitch
+  - arrow: right  # Pitch -> Reverb
+  - select: 15  # DuskVerb (greyed out, not installed)
+  - confirm: short  # only shows a 2s "Not installed" info toast
+save_snapshot: true
+assert_zss:
+  chain_has_engine: FS

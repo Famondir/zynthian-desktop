@@ -8,8 +8,11 @@
 # Step sequence found live (see design.md): CHAIN_OPTIONS opens the
 # active chain's option list; both "Add MIDI-FX" and "Add Audio-FX"
 # appear for a synth chain (it accepts MIDI input and produces audio
-# output) - "Add Audio-FX" is list index 1 (the "> PROCESSORS" section
-# header itself isn't a selectable index). That opens the engine screen
+# output) - "Add Audio-FX" is list index 2: the "> PROCESSORS" header is
+# index 0 in list_data. (This used to say index 1, which is "Add
+# MIDI-FX" - found in enable-lv2-reverb-effects: the workflow had been
+# adding the SysEx MIDI tool all along, which is why the old
+# `chain_has_engine: SX` assert passed.) That opens the engine screen
 # again, this time scoped to Audio Effect type: index 0 there is "None"
 # (Audio Effect/MIDI Tool types offer a no-op "leave this slot empty"
 # choice the Instrument-type list doesn't have), and the category tabs
@@ -17,10 +20,12 @@
 # ("Delay", "Distortion", "Dynamics", "Filter & EQ", "Modulation",
 # "Panning", "Spatial", "Pitch", "Reverb", "Simulator", "Analyzer",
 # "Other") - "Simulator" (amp/cabinet/tape sims) is 9 categories to the
-# right. GxPlexi ("Power Amp simulation", confirmed via
-# engine_config.json's own DESCR field), a real guitarix amp simulator,
-# is that category's 9th enabled entry (index 8) in this machine's
-# current engine registry.
+# right. GxAmplifier-X, a real guitarix amp simulator, is that
+# category's 5th enabled entry (index 5, after "None") in this machine's
+# engine registry since enable-lv2-reverb-effects regenerated it from the
+# installed plugins. (Previously GxPlexi at index 8 - which turned out to
+# be a stale catalog entry, not installed natively, and the old
+# `chain_has_engine: SX` assert matched the SysEx MIDI tool, not the amp.)
 name: add-amp-effect
 steps:
   # Two-screen warm-up, not one - see build_fluidsynth_chain.yaml's own
@@ -49,11 +54,13 @@ steps:
   - cuia: CHAIN_OPTIONS
     assert:
       screen_is: chain_options
-  - select: 1  # "Add Audio-FX processor"
+  - select: 2  # "Add Audio-FX processor" (0 is the "> PROCESSORS" header, 1 "Add MIDI-FX")
   - confirm: short
     assert:
       screen_is: engine
-  - arrow: right  # Delay -> Distortion
+  # The Audio-FX engine screen opens on "Distortion", not "Delay": the
+  # engine screen keeps its cat_index from the previous visit (Instrument
+  # -> Sampler = index 1) - found in enable-lv2-reverb-effects.
   - arrow: right  # Distortion -> Dynamics
   - arrow: right  # Dynamics -> Filter & EQ
   - arrow: right  # Filter & EQ -> Modulation
@@ -62,11 +69,12 @@ steps:
   - arrow: right  # Spatial -> Pitch
   - arrow: right  # Pitch -> Reverb
   - arrow: right  # Reverb -> Simulator
-  - select: 8  # GxPlexi
+  - select: 5  # GxAmplifier-X
   - confirm: short
 # reload_and_check_audio deliberately NOT enabled here (unlike
 # build_fluidsynth_chain.yaml): found live that a freshly-reloaded
-# session with GxPlexi (a JALV/LV2 X11UI-type plugin) in the chain
+# session with GxPlexi (a JALV/LV2 X11UI-type plugin - and, as found
+# later, not installed at all: see enable-lv2-reverb-effects) in the chain
 # reliably produces silent audio in Docker specifically - no error, no
 # "Starting Engine" log line for it at all, confirmed not a timing issue
 # (still silent after a 10s extra settle wait). Native's own reload of
@@ -78,4 +86,4 @@ steps:
 # that unreliably fails in one environment.
 save_snapshot: true
 assert_zss:
-  chain_has_engine: SX
+  chain_has_engine: JV/GxAmplifier-X

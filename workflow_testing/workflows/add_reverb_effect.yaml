@@ -1,0 +1,53 @@
+# Add a reverb to a FluidSynth chain (enable-lv2-reverb-effects, task
+# 6.1). Same chain-building and CHAIN_OPTIONS sequence as
+# add_amp_effect.yaml (see its header for how it was found), then the
+# "Reverb" category, 8 categories right of the default "Delay".
+#
+# Dragonfly Hall Reverb (apt dragonfly-reverb-lv2) is that category's
+# 3rd enabled entry (index 3, after "None"): Calf Reverb, Dragonfly
+# Early Reflections, Dragonfly Hall Reverb, ... - computed from the
+# regenerated engine_config.json with the engine screen's own ordering
+# (title order, not-installed entries sorted to the end).
+name: add-reverb-effect
+steps:
+  - screen: SCREEN_CHAIN_MANAGER
+  - screen: SCREEN_MIXER
+    assert:
+      screen_is: mixer
+  - cuia: ADD_CHAIN
+    assert:
+      screen_is: add_chain
+  - select: 0  # "Instrument"
+  - confirm: short
+    assert:
+      screen_is: engine
+  - arrow: right  # Synth category -> Sampler category
+  - select: 0  # FluidSynth
+  - confirm: short
+    assert:
+      screen_is: midi_chan
+  - select: 0  # first available MIDI channel
+  - confirm: short
+  - cuia: CHAIN_OPTIONS
+    assert:
+      screen_is: chain_options
+  - select: 2  # "Add Audio-FX processor" (0 is the "> PROCESSORS" header, 1 "Add MIDI-FX")
+  - confirm: short
+    assert:
+      screen_is: engine
+  # The Audio-FX engine screen opens on "Distortion", not "Delay": the
+  # engine screen keeps its cat_index from the previous visit (Instrument
+  # -> Sampler = index 1) - found in enable-lv2-reverb-effects.
+  - arrow: right  # Distortion -> Dynamics
+  - arrow: right  # Dynamics -> Filter & EQ
+  - arrow: right  # Filter & EQ -> Modulation
+  - arrow: right  # Modulation -> Panning
+  - arrow: right  # Panning -> Spatial
+  - arrow: right  # Spatial -> Pitch
+  - arrow: right  # Pitch -> Reverb
+  - select: 3  # Dragonfly Hall Reverb
+  - confirm: short
+save_snapshot: true
+assert_zss:
+  chain_has_engine: JV/Dragonfly Hall Reverb
+reload_and_check_audio: true

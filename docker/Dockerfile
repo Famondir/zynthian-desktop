@@ -34,7 +34,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gperf libsigc++-2.0-dev libeigen3-dev \
     ca-certificates wget curl unzip openssl \
     x11-apps xauth \
+    dragonfly-reverb-lv2 calf-plugins x42-plugins zam-plugins mda-lv2 swh-lv2 lsp-plugins-lv2 \
     && rm -rf /var/lib/apt/lists/*
+# The LV2 effect packages on the line above (enable-lv2-reverb-effects):
+# upstream's engine catalog lists ~880 audio effects, almost none of them
+# installable without these - in particular every reverb except
+# GxReverb-Stereo. Same set as on the native install.
 # Notably NOT installed: pipewire-jack, or any PipeWire package. There is
 # no PipeWire running inside the container to conflict with jackd.
 
@@ -273,6 +278,22 @@ RUN mkdir -p "$ZYNTHIAN_CONFIG_DIR" \
 # docker.sh's --user). lib/upload_handler.py unconditionally os.mkdir()s
 # a tmp/ dir inside it at *import* time (no try/except) - crashes with a
 # bare PermissionError before the app ever starts without this.
+
+# The engine_config.json just seeded from zynthian-sys is upstream's RPi
+# catalog, listing hundreds of plugins this image doesn't have (selecting
+# one used to fail with KeyError "Plugin not found"). Regenerate it from
+# the plugins lilv actually finds here - upstream's own entry point, keeps
+# upstream titles/categories/enabled flags for every plugin that exists,
+# and maps Debian's mda-lv2 (drobilla.net URIs) onto upstream's MDA
+# entries by name. `engines` only builds presets caches for keys new to
+# the catalog, but most installed plugins already had a key there - so
+# `presets` builds all of them (without, adding e.g. Calf Reverb logs
+# "Can't load presets cache file"). Not-installed upstream plugins still
+# show up greyed out at runtime (zynthian_lv2.mark_unavailable_engines).
+RUN cd "$ZYNTHIAN_UI_DIR" \
+    && "$ZYNTHIAN_DIR/venv/bin/python3" zyngine/zynthian_lv2.py engines \
+    && "$ZYNTHIAN_DIR/venv/bin/python3" zyngine/zynthian_lv2.py presets \
+    && chmod -R a+rwX "$ZYNTHIAN_CONFIG_DIR"
 
 # --- 6. Container entrypoint ---
 COPY entrypoint.sh /usr/local/bin/zynthian-entrypoint.sh
