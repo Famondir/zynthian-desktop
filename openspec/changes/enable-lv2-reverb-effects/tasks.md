@@ -34,5 +34,5 @@
 ## 6. Verification
 
 - [x] 6.1 Add a workflow test (`workflow_testing/workflows/add_reverb_effect.yaml`, modelled on `add_amp_effect.yaml`) that adds a reverb to a synth chain; run it native + Docker
-- [ ] 6.2 Live test with the user: FISA right hand → MIDI ch. 4 (FISA input in Multitimbral mode) → FluidSynth distorted-guitar preset → reverb (no extra distortion effect); check for xruns at the real `JACKD_OPTIONS`. Mark done only after the user confirms by ear
+- [x] 6.2 Live test with the user: FISA right hand → MIDI ch. 4 (FISA input in Multitimbral mode) → FluidSynth distorted-guitar preset → reverb (no extra distortion effect); check for xruns at the real `JACKD_OPTIONS`. Mark done only after the user confirms by ear (confirmed by the user on the native install: no dropouts)
 - [x] 6.3 Record follow-ups as separate changes: MIDI channel filter not isolating ch. 1, lost MIDI notes - no change needed: both came from the FISA input running in Zynthian's "Active chain" mode (`ZYNTHIAN_MIDI_ACTIVE_CHANNEL=1`), which translated the left hand's chord/bass channels (2, 3) onto the guitar chain, so chord note-offs killed held right-hand notes of the same pitch. Fixed by configuration: FISA input set to Multitimbral, guitar chain on the right hand's MIDI channel 4 (confirmed by the user)
