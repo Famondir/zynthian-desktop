@@ -13,9 +13,9 @@
 
 - [x] 3.1 Add `type:`/`key:` step kinds to `runner.py` (`xdotool` against `session.display`), refused unless the tracked screen is `keyboard`; log `SHOW SCREEN 'keyboard'` in the fork so it can be tracked (design D5)
 - [x] 3.2 Add `chain_has_title` to `zss_assert` / `assert_zss`
-- [ ] 3.3 Add `workflows/type_chain_name.yaml`; run native (PASS, negative control FAIL as expected) and Docker
+- [x] 3.3 Add `workflows/type_chain_name.yaml`; run native (PASS, negative control FAIL as expected) and Docker - Docker PASS too
 
 ## 4. Ship
 
-- [ ] 4.1 Commit and **push** the fork changes to `fork/vangelis`; rebuild Docker with `CACHEBUST` and rerun 3.3 there
+- [x] 4.1 Commit and **push** the fork changes to `fork/vangelis`; rebuild Docker with `CACHEBUST` and rerun 3.3 there
 - [x] 4.2 Add an upstream PR entry for this fix to `submit-upstream-fix-prs`
