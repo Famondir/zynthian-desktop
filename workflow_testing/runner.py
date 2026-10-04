@@ -99,6 +99,10 @@ class Step:
     type: str | None = None
     key: str | None = None
     assert_screen_is: str | None = None
+    # Like assert_screen_is, but requires the screen to be shown *anew*
+    # during this step - for a screen that is re-shown after a slow engine
+    # start while it's already the current one (Aeolus' bank screen).
+    assert_screen_shown: str | None = None
 
     def __post_init__(self) -> None:
         action_fields = (
@@ -193,6 +197,7 @@ def load_workflow(path: str | Path) -> Workflow:
                 type=raw_step.get("type"),
                 key=raw_step.get("key"),
                 assert_screen_is=assert_block.get("screen_is"),
+                assert_screen_shown=assert_block.get("screen_shown"),
             )
         )
 
@@ -275,14 +280,19 @@ def _run_step(step: Step, session, injector: injection.CuiaInjector, screen_trac
     # screen seconds after the log first goes quiet. An expected screen is
     # therefore waited for (bounded) instead of checked once; the error
     # check below still covers every line logged meanwhile.
+    def screen_shown_in(lines: list[str]) -> bool:
+        return any(
+            (m := _SHOW_SCREEN_RE.search(line)) and m.group(1) == step.assert_screen_shown for line in lines
+        )
+
     deadline = time.monotonic() + _SCREEN_WAIT_S
-    while (
-        step.assert_screen_is is not None
-        and screen_tracker.current != step.assert_screen_is
-        and time.monotonic() < deadline
+    while time.monotonic() < deadline and (
+        (step.assert_screen_is is not None and screen_tracker.current != step.assert_screen_is)
+        or (step.assert_screen_shown is not None and not screen_shown_in(new_lines))
     ):
         time.sleep(0.5)
-        screen_tracker.update(log_diff.wait_for_stable_tail(mark))
+        new_lines = log_diff.wait_for_stable_tail(mark)
+        screen_tracker.update(new_lines)
 
     try:
         log_diff.assert_no_new_errors(
@@ -291,6 +301,13 @@ def _run_step(step: Step, session, injector: injection.CuiaInjector, screen_trac
         )
     except log_diff.LogRegressionError as e:
         return StepResult(step=step, passed=False, error=str(e))
+
+    if step.assert_screen_shown is not None and not screen_shown_in(new_lines):
+        return StepResult(
+            step=step,
+            passed=False,
+            error=f"Expected screen '{step.assert_screen_shown}' to be shown during {step.describe()}, it wasn't",
+        )
 
     if step.assert_screen_is is not None and screen_tracker.current != step.assert_screen_is:
         return StepResult(

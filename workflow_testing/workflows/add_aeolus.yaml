@@ -6,7 +6,8 @@
 # Aeolus then uses its bank screen twice - first keyboard/manual
 # configurations, then temperaments; only after both does
 # zynthian_engine_aeolus.set_bank() run start(), which sets up a
-# processor per division. Saving a snapshot before that crashes in
+# processor per division - and then shows the real bank list, whose
+# entry leads to the presets. Saving a snapshot before that crashes in
 # zynthian_engine_aeolus.get_extended_config ("'zynthian_processor'
 # object has no attribute 'division'" - found live, upstream bug), so
 # the workflow picks the first configuration, like a user would.
@@ -39,6 +40,10 @@ steps:
     assert:
       screen_is: bank  # same screen, now listing temperaments
   - select: 0  # first temperament - only now does the engine start
+  - confirm: short
+    assert:
+      screen_shown: bank  # re-shown once the engine is up: the real bank list ("General")
+  - select: 0  # first bank
   - confirm: short
     assert:
       screen_is: preset

@@ -7,8 +7,8 @@
 
 - [x] 2.1 `apt install sooperlooper vlc vlc-plugin-jack` and PureData (`puredata puredata-core puredata-utils puredata-import python3-yaml` + the upstream `pd-*` externals that exist on Ubuntu 24.04 - none dropped, all exist on 24.04) (design D2)
 - [x] 2.2 Build and install Aeolus from `zynthian/aeolus` branch `zynthian` like `install_aeolus.sh` (deps, `/usr/local/share/aeolus/stops`, `/etc/aeolus.conf`) (design D3)
-- [ ] 2.2b Apply `docker/patches/aeolus-osc-arg-order.patch` (x86_64 `/retune` segfault, see design findings) to the native Aeolus build and reinstall
-- [ ] 2.3 Restart Zynthian; SL, AE, IR, PD shown normally; MD still greyed
+- [x] 2.2b Apply `docker/patches/aeolus-osc-arg-order.patch` (x86_64 `/retune` segfault, see design findings) to the native Aeolus build and reinstall
+- [x] 2.3 Restart Zynthian; SL, AE, IR, PD shown normally; MD still greyed
 
 ## 3. Docker
 
