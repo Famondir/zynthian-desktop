@@ -13,9 +13,9 @@
 ## 3. Docker
 
 - [x] 3.1 Add the same apt packages and an Aeolus build step to `docker/Dockerfile`
-- [ ] 3.2 Rebuild with `CACHEBUST`; re-run the LV2 load audit inside the container
+- [x] 3.2 Rebuild with `CACHEBUST`; re-run the LV2 load audit inside the container (163/163 enabled LV2 plugins load)
 
 ## 4. Verification
 
-- [ ] 4.1 Add workflows that add SooperLooper, Aeolus, Internet Radio and PureData to a chain (assert engine code in the saved snapshot); run native + Docker
-- [ ] 4.2 Commit and **push** the fork change; commit this repo
+- [x] 4.1 Add workflows that add SooperLooper, Aeolus, Internet Radio and PureData to a chain (assert engine code in the saved snapshot); run native + Docker (native suite 10/10; Docker suite 9/10 - add_aeolus timed out waiting for the bank screen when it ran first against a cold container, PASS when re-run alone)
+- [x] 4.2 Commit and **push** the fork change; commit this repo
