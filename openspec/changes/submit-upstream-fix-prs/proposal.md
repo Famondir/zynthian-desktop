@@ -6,6 +6,7 @@ Five small bug-fix changes (`fix-fluidsynth-prompt-detection`, `fix-sfizz-dspres
 
 - Track the five pending "open PR" tasks (one per already-pushed topic branch) in a single place, so they can still be picked up later without blocking archival of the changes whose actual code work is done.
 - Add one optional task for a sixth, not-yet-branched candidate: the VMPK entry added to `zynautoconnect.py`'s existing virtual-MIDI-hardware whitelist (part of `support-virtual-test-devices`, already on `fork/vangelis` directly, no topic branch yet) - unlike the knob-related fixes from the same session (which only affect this fork's own `device`/`device_cables` GUI styles, not present in - or relevant to - the upstream project at all), this whitelist mechanism already exists upstream and already recognizes several other virtual MIDI tools (`QmidiNet`, `jackrtpmidid`, `TouchOSC Bridge`), so adding VMPK to it is a plausible small upstream contribution.
+- Add a seventh optional candidate (added 2026-10-04): physical keyboard text entry into the on-screen keyboard dialog (`support-physical-keyboard-text-entry`, fork commit `0e656765`, on `fork/vangelis` directly, no topic branch yet). Upstream has the same code and the same bug, so it applies to real hardware with a USB keyboard too.
 - No PRs are actually opened by this change itself - each remains a tracked, pending task requiring explicit go-ahead when actually submitted (see design.md).
 
 ## Capabilities

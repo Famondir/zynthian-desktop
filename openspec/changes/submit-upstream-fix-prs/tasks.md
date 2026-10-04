@@ -10,5 +10,7 @@
 
 - [ ] 2.1 Cherry-pick the VMPK whitelist entry (part of commit `722d8e7`, alongside the unrelated knob-colour commit `bfe70a9` - separate just this one) onto a clean topic branch off `origin/vangelis`, e.g. `fix/vmpk-midi-whitelist`, and push it to `Famondir/zynthian-ui`
 - [ ] 2.2 Open PR: `Famondir/zynthian-ui:fix/vmpk-midi-whitelist` → `zynthian/zynthian-ui:vangelis`
+- [ ] 2.3 Cherry-pick the physical-keyboard text entry fix (commit `0e656765`, from `support-physical-keyboard-text-entry`) onto a clean topic branch off `origin/vangelis`, e.g. `fix/physical-keyboard-text-entry`, and push it to `Famondir/zynthian-ui`
+- [ ] 2.4 Open PR: `Famondir/zynthian-ui:fix/physical-keyboard-text-entry` → `zynthian/zynthian-ui:vangelis` - upstream has the identical code: typing on a USB keyboard into any text dialog fires keybinding CUIAs (QWERTY profile maps `i k o l`/Tab to ZYNSWITCH) instead of entering text
 
 Each task above requires explicit go-ahead at the time it's actually done - see design.md's Non-Goals. Nothing here is submitted automatically by this change existing.

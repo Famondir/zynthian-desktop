@@ -7,7 +7,7 @@
 ## 2. Key routing (`zynthian_main.py`)
 
 - [x] 2.1 In `cb_keybinding`, route events to `screens["keyboard"].physical_key()` while `current_screen == "keyboard"` and the screen is shown; skip the keybinding lookup; keep Ctrl/Alt combos on the keybinding path (design D1)
-- [ ] 2.2 Manually verify on the native desktop: snapshot name with `i k o l`, capitals, umlauts, Backspace, Escape; numpad dialog rejects letters; arrow keys on the mixer still work afterwards
+- [x] 2.2 Manually verify on the native desktop: snapshot name with `i k o l`, capitals, umlauts, Backspace, Escape; numpad dialog rejects letters; arrow keys on the mixer still work afterwards
 
 ## 3. Workflow test (this repo, `workflow_testing/`)
 
@@ -18,4 +18,4 @@
 ## 4. Ship
 
 - [ ] 4.1 Commit and **push** the fork changes to `fork/vangelis`; rebuild Docker with `CACHEBUST` and rerun 3.3 there
-- [ ] 4.2 Add an upstream PR entry for this fix to `submit-upstream-fix-prs`
+- [x] 4.2 Add an upstream PR entry for this fix to `submit-upstream-fix-prs`
