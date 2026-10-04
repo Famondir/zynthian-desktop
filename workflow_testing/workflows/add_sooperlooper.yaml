@@ -1,0 +1,52 @@
+# Add SooperLooper (standalone engine "SL", program `sooperlooper`) to a
+# FluidSynth chain (fix-unavailable-standalone-engines). Before that
+# change it was listed as available but failed with "Can't start engine
+# 'SL' => No such file or directory: 'sooperlooper'".
+#
+# SooperLooper's catalog category is "Other" (the last Audio Effect
+# category), index 2 after "None": Declipper, SooperLooper, then greyed
+# entries. The Audio-FX engine screen opens on "Distortion" (cat_index
+# carried over from the Instrument visit, see add_amp_effect.yaml), so
+# "Other" is 10 categories to the right.
+name: add-sooperlooper
+steps:
+  - screen: SCREEN_CHAIN_MANAGER
+  - screen: SCREEN_MIXER
+    assert:
+      screen_is: mixer
+  - cuia: ADD_CHAIN
+    assert:
+      screen_is: add_chain
+  - select: 0  # "Instrument"
+  - confirm: short
+    assert:
+      screen_is: engine
+  - arrow: right  # Synth category -> Sampler category
+  - select: 0  # FluidSynth
+  - confirm: short
+    assert:
+      screen_is: midi_chan
+  - select: 0  # first available MIDI channel
+  - confirm: short
+  - cuia: CHAIN_OPTIONS
+    assert:
+      screen_is: chain_options
+  - select: 2  # "Add Audio-FX processor"
+  - confirm: short
+    assert:
+      screen_is: engine
+  - arrow: right  # Distortion -> Dynamics
+  - arrow: right  # Dynamics -> Filter & EQ
+  - arrow: right  # Filter & EQ -> Modulation
+  - arrow: right  # Modulation -> Panning
+  - arrow: right  # Panning -> Spatial
+  - arrow: right  # Spatial -> Pitch
+  - arrow: right  # Pitch -> Reverb
+  - arrow: right  # Reverb -> Simulator
+  - arrow: right  # Simulator -> Analyzer
+  - arrow: right  # Analyzer -> Other
+  - select: 2  # SooperLooper
+  - confirm: short
+save_snapshot: true
+assert_zss:
+  chain_has_engine: SL

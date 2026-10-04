@@ -35,11 +35,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates wget curl unzip openssl \
     x11-apps xauth \
     dragonfly-reverb-lv2 calf-plugins x42-plugins zam-plugins mda-lv2 swh-lv2 lsp-plugins-lv2 \
+    sooperlooper vlc vlc-plugin-jack \
+    puredata puredata-core puredata-utils puredata-import python3-yaml \
+    pd-lua pd-moonlib pd-pdstring pd-markex pd-iemnet pd-plugin pd-ekext pd-bassemu pd-readanysf pd-pddp \
+    pd-zexy pd-list-abs pd-flite pd-windowing pd-fftease pd-bsaylor pd-osc pd-sigpack pd-hcs pd-pdogg pd-purepd \
+    pd-beatpipe pd-freeverb pd-iemlib pd-smlib pd-hid pd-csound pd-earplug pd-wiimote pd-pmpd pd-motex \
+    pd-arraysize pd-ggee pd-chaos pd-iemmatrix pd-comport pd-libdir pd-vbap pd-cxc pd-lyonpotpourri pd-iemambi \
+    pd-pdp pd-mjlib pd-cyclone pd-jmmmp pd-3dp pd-boids pd-mapping pd-maxlib \
+    libclthreads-dev libclxclient-dev libzita-alsa-pcmi-dev libreadline-dev libxft-dev \
     && rm -rf /var/lib/apt/lists/*
 # The LV2 effect packages on the line above (enable-lv2-reverb-effects):
 # upstream's engine catalog lists ~880 audio effects, almost none of them
 # installable without these - in particular every reverb except
 # GxReverb-Stereo. Same set as on the native install.
+# The lines after them (fix-unavailable-standalone-engines): the programs
+# of standalone engines upstream enables by default - SooperLooper,
+# Internet Radio (vlc + JACK output; zynthian-sys's geteuid patch is only
+# for running vlc as root, which this image never does), PureData with
+# the same pd-* externals zynthian-sys installs - plus Aeolus' build deps
+# (Aeolus itself is built from Zynthian's fork further down).
 # Notably NOT installed: pipewire-jack, or any PipeWire package. There is
 # no PipeWire running inside the container to conflict with jackd.
 
@@ -204,6 +218,20 @@ RUN cd "$ZYNTHIAN_PLUGINS_SRC_DIR" \
     && make -j"$(nproc)" \
     && mv neural_amp_modeler.lv2 "$ZYNTHIAN_PLUGINS_DIR/lv2/Neural_Amp_Modeler.lv2" \
     && cd "$ZYNTHIAN_PLUGINS_SRC_DIR" && rm -rf neural-amp-modeler-lv2
+
+# 3.4d Aeolus from Zynthian's own fork (branch "zynthian"), replicating
+# zynthian-sys's recipes/install_aeolus.sh - Debian's aeolus package lacks
+# Zynthian's patches. Build deps are in section 1's apt list instead of
+# building the kokkinizita libs by hand (install_aeolus_kokki.sh).
+RUN cd "$ZYNTHIAN_SW_DIR" \
+    && git clone --depth 1 -b zynthian https://github.com/zynthian/aeolus.git aeolus \
+    && cd aeolus/source \
+    && make -j"$(nproc)" \
+    && make install \
+    && mkdir -p /usr/local/share/aeolus \
+    && cp -a ../stops /usr/local/share/aeolus \
+    && echo "-u -S /usr/local/share/aeolus/stops" > /etc/aeolus.conf \
+    && cd "$ZYNTHIAN_SW_DIR" && rm -rf aeolus
 
 # 3.5 zynthian-ui's own zynlibs (zynaudioplayer, zynmixer, zynseq, zynsmf,
 # zynclippy). The vangelis fork branch already has the GCC-13 -Werror

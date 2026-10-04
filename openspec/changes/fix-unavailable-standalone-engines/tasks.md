@@ -1,7 +1,7 @@
 ## 1. Availability for standalone engines (`/zynthian/zynthian-ui`, `zyngine/zynthian_lv2.py`)
 
-- [ ] 1.1 Add `standalone_engine_requires` (program or systemd unit + install hint per engine code) and apply it in `mark_unavailable_engines()` (design D1)
-- [ ] 1.2 Verify natively before installing anything: SL, AE, IR, PD, MD greyed out with the right hint; FS/ZY/SF/BF unchanged; selecting SL only shows the toast, no `Can't start engine` error
+- [x] 1.1 Add `standalone_engine_requires` (program or systemd unit + install hint per engine code) and apply it in `mark_unavailable_engines()` (design D1)
+- [x] 1.2 Verify natively before installing anything: SL, AE, IR, PD, MD greyed out with the right hint; FS/ZY/SF/BF unchanged; selecting SL only shows the toast, no `Can't start engine` error (native: add_sooperlooper refuses SL before install - no `Can't start engine` logged, no traceback)
 
 ## 2. Install the engines (native - needs the user's sudo)
 
@@ -11,7 +11,7 @@
 
 ## 3. Docker
 
-- [ ] 3.1 Add the same apt packages and an Aeolus build step to `docker/Dockerfile`
+- [x] 3.1 Add the same apt packages and an Aeolus build step to `docker/Dockerfile`
 - [ ] 3.2 Rebuild with `CACHEBUST`; re-run the LV2 load audit inside the container
 
 ## 4. Verification
