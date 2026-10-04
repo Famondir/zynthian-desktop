@@ -47,6 +47,8 @@ steps:
   - arrow: right  # Analyzer -> Other
   - select: 2  # SooperLooper
   - confirm: short
+    assert:
+      screen_is: preset  # shown once the sooperlooper process is up
 save_snapshot: true
 assert_zss:
   chain_has_engine: SL

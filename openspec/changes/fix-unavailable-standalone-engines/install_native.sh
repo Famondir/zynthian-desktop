@@ -21,12 +21,16 @@ sudo apt-get install -y \
     pd-pdp pd-mjlib pd-cyclone pd-jmmmp pd-3dp pd-boids pd-mapping pd-maxlib \
     libclthreads-dev libclxclient-dev libzita-alsa-pcmi-dev libreadline-dev libxft-dev
 
+repo_dir="$(git -C "$(dirname "$(readlink -f "$0")")" rev-parse --show-toplevel)"
 src_dir="${ZYNTHIAN_SW_DIR:-/zynthian/zynthian-sw}"
 mkdir -p "$src_dir"
 cd "$src_dir"
 rm -rf aeolus
 git clone -b zynthian https://github.com/zynthian/aeolus.git
-cd aeolus/source
+cd aeolus
+# OSC argument order fix - without it /retune crashes Aeolus on x86_64
+git apply "$repo_dir/docker/patches/aeolus-osc-arg-order.patch"
+cd source
 make -j"$(nproc)"
 sudo make install
 cd ..

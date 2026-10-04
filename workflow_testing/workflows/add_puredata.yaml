@@ -1,0 +1,26 @@
+# Add a PureData chain (standalone engine "PD", runs `pd`)
+# (fix-unavailable-standalone-engines). Add Chain grid index 6 is
+# "Special", whose only category "Language" lists PureData (0) and the
+# greyed-out MOD-UI (1).
+name: add-puredata
+steps:
+  - screen: SCREEN_CHAIN_MANAGER
+  - screen: SCREEN_MIXER
+    assert:
+      screen_is: mixer
+  - cuia: ADD_CHAIN
+    assert:
+      screen_is: add_chain
+  - select: 6  # "Special"
+  - confirm: short
+    assert:
+      screen_is: engine
+  - select: 0  # PureData
+  - confirm: short
+    assert:
+      screen_is: midi_chan
+  - select: 0  # first available MIDI channel
+  - confirm: short
+save_snapshot: true
+assert_zss:
+  chain_has_engine: PD

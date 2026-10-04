@@ -1,0 +1,47 @@
+# Add an Aeolus (standalone engine "AE", Zynthian's aeolus fork) chain
+# (fix-unavailable-standalone-engines). Instrument -> engine screen opens
+# on "Synth"; "Organ" is 3 categories to the right, Aeolus its first
+# entry (index 0 - MIDI Synth lists have no "None" row).
+#
+# Aeolus then uses its bank screen twice - first keyboard/manual
+# configurations, then temperaments; only after both does
+# zynthian_engine_aeolus.set_bank() run start(), which sets up a
+# processor per division. Saving a snapshot before that crashes in
+# zynthian_engine_aeolus.get_extended_config ("'zynthian_processor'
+# object has no attribute 'division'" - found live, upstream bug), so
+# the workflow picks the first configuration, like a user would.
+name: add-aeolus
+steps:
+  - screen: SCREEN_CHAIN_MANAGER
+  - screen: SCREEN_MIXER
+    assert:
+      screen_is: mixer
+  - cuia: ADD_CHAIN
+    assert:
+      screen_is: add_chain
+  - select: 0  # "Instrument"
+  - confirm: short
+    assert:
+      screen_is: engine
+  - arrow: right  # Synth -> Sampler
+  - arrow: right  # Sampler -> Piano
+  - arrow: right  # Piano -> Organ
+  - select: 0  # Aeolus
+  - confirm: short
+    assert:
+      screen_is: midi_chan
+  - select: 0  # first available MIDI channel
+  - confirm: short
+    assert:
+      screen_is: bank  # Aeolus keyboard configurations
+  - select: 0  # first keyboard configuration ("Manual I+II+III+Pedals")
+  - confirm: short
+    assert:
+      screen_is: bank  # same screen, now listing temperaments
+  - select: 0  # first temperament - only now does the engine start
+  - confirm: short
+    assert:
+      screen_is: preset
+save_snapshot: true
+assert_zss:
+  chain_has_engine: AE

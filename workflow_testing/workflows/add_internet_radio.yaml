@@ -1,0 +1,27 @@
+# Add an Internet Radio chain (standalone engine "IR", runs `vlc`)
+# (fix-unavailable-standalone-engines). Add Chain grid index 5 is "Audio
+# Generator"; its engine screen opens on "Generator", "Other" is 2
+# categories to the right: AudioPlayer (0), Internet Radio (1). Audio
+# generators get no MIDI channel, so there's no midi_chan screen.
+name: add-internet-radio
+steps:
+  - screen: SCREEN_CHAIN_MANAGER
+  - screen: SCREEN_MIXER
+    assert:
+      screen_is: mixer
+  - cuia: ADD_CHAIN
+    assert:
+      screen_is: add_chain
+  - select: 5  # "Audio Generator"
+  - confirm: short
+    assert:
+      screen_is: engine
+  - arrow: right  # Generator -> Oscillator
+  - arrow: right  # Oscillator -> Other
+  - select: 1  # Internet Radio
+  - confirm: short
+    assert:
+      screen_is: bank  # station banks, shown once vlc is up
+save_snapshot: true
+assert_zss:
+  chain_has_engine: IR

@@ -223,9 +223,18 @@ RUN cd "$ZYNTHIAN_PLUGINS_SRC_DIR" \
 # zynthian-sys's recipes/install_aeolus.sh - Debian's aeolus package lacks
 # Zynthian's patches. Build deps are in section 1's apt list instead of
 # building the kokkinizita libs by hand (install_aeolus_kokki.sh).
+#
+# patches/aeolus-osc-arg-order.patch: the fork's OSC handlers pass two
+# tosc_getNext*() calls as arguments of one constructor call, whose
+# evaluation order is unspecified - GCC on x86_64 reads them right-to-left,
+# so /retune got freq/temperament swapped and segfaulted in
+# Model::proc_rank (found live; ARM evaluates them in the expected order,
+# which is why it works on real hardware).
+COPY patches/aeolus-osc-arg-order.patch /tmp/aeolus-osc-arg-order.patch
 RUN cd "$ZYNTHIAN_SW_DIR" \
     && git clone --depth 1 -b zynthian https://github.com/zynthian/aeolus.git aeolus \
-    && cd aeolus/source \
+    && cd aeolus && git apply /tmp/aeolus-osc-arg-order.patch && rm /tmp/aeolus-osc-arg-order.patch \
+    && cd source \
     && make -j"$(nproc)" \
     && make install \
     && mkdir -p /usr/local/share/aeolus \

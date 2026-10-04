@@ -238,6 +238,9 @@ class _ScreenTracker:
                 self.current = m.group(1)
 
 
+_SCREEN_WAIT_S = 20.0
+
+
 def _run_step(step: Step, session, injector: injection.CuiaInjector, screen_tracker: _ScreenTracker) -> StepResult:
     mark = log_diff.mark_tail(session.ui_log_path)
 
@@ -265,6 +268,21 @@ def _run_step(step: Step, session, injector: injection.CuiaInjector, screen_trac
         musical_note.play_note(session.display)
 
     new_lines = log_diff.wait_for_stable_tail(mark)
+    screen_tracker.update(new_lines)
+
+    # Some actions switch screens only after a slow engine start - found
+    # live: adding SooperLooper or Internet Radio shows its preset/bank
+    # screen seconds after the log first goes quiet. An expected screen is
+    # therefore waited for (bounded) instead of checked once; the error
+    # check below still covers every line logged meanwhile.
+    deadline = time.monotonic() + _SCREEN_WAIT_S
+    while (
+        step.assert_screen_is is not None
+        and screen_tracker.current != step.assert_screen_is
+        and time.monotonic() < deadline
+    ):
+        time.sleep(0.5)
+        screen_tracker.update(log_diff.wait_for_stable_tail(mark))
 
     try:
         log_diff.assert_no_new_errors(
@@ -273,8 +291,6 @@ def _run_step(step: Step, session, injector: injection.CuiaInjector, screen_trac
         )
     except log_diff.LogRegressionError as e:
         return StepResult(step=step, passed=False, error=str(e))
-
-    screen_tracker.update(new_lines)
 
     if step.assert_screen_is is not None and screen_tracker.current != step.assert_screen_is:
         return StepResult(
